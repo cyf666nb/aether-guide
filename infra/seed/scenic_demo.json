@@ -1,0 +1,34 @@
+{
+  "scenic_id": "demo-scenic",
+  "default_persona_id": "persona-demo",
+  "landmarks": [
+    {
+      "id": "moon-gate",
+      "name": "月门听泉",
+      "summary": "一处临水月门，适合开场讲解园林借景与水声设计。",
+      "geo_point": { "lat": 31.2304, "lng": 121.4737, "accuracy_m": 12 },
+      "tags": ["water", "garden", "photo"],
+      "avg_duration_min": 12,
+      "emergency_nearby": ["service-north"]
+    },
+    {
+      "id": "pine-terrace",
+      "name": "松台远眺",
+      "summary": "高处观景平台，可串联路线推荐、拥挤度提示和夕照讲解。",
+      "geo_point": { "lat": 31.2311, "lng": 121.4742, "accuracy_m": 10 },
+      "tags": ["view", "history", "sunset"],
+      "avg_duration_min": 18,
+      "emergency_nearby": ["service-east"]
+    },
+    {
+      "id": "ink-bridge",
+      "name": "墨桥",
+      "summary": "连接主游线的石桥，适合演示对话式定位和偏航提醒。",
+      "geo_point": { "lat": 31.2298, "lng": 121.4729, "accuracy_m": 9 },
+      "tags": ["bridge", "route", "family"],
+      "avg_duration_min": 8,
+      "emergency_nearby": ["service-south"]
+    }
+  ]
+}
+

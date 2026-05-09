@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>知行导览中台</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="operator-panel" aria-label="visitor session console">
+        <div class="brand-row">
+          <div>
+            <p class="kicker">AETHER GUIDE</p>
+            <h1>知行导览</h1>
+          </div>
+          <span id="status" class="status offline">OFFLINE</span>
+        </div>
+
+        <div class="control-grid">
+          <label>
+            <span>Scenic ID</span>
+            <input id="scenicId" value="demo-scenic" autocomplete="off" />
+          </label>
+          <button id="createSession" type="button">Create Session</button>
+        </div>
+
+        <div class="chat-surface">
+          <div id="messages" class="messages" aria-live="polite">
+            <article class="message guide">
+              <span class="speaker">Guide</span>
+              <p>游客端已就绪，等待创建会话。</p>
+            </article>
+          </div>
+          <div class="composer">
+            <textarea id="prompt" rows="3">你好，给我介绍一下附近最值得先看的景点。</textarea>
+            <button id="sendMessage" type="button" disabled>Send</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="context-panel" aria-label="scenic context">
+        <div class="map-card">
+          <div class="map-visual" aria-hidden="true">
+            <span class="pin p1"></span>
+            <span class="pin p2"></span>
+            <span class="pin p3"></span>
+          </div>
+          <div>
+            <p class="kicker">TRACE</p>
+            <p id="traceId" class="trace">waiting</p>
+          </div>
+        </div>
+        <div>
+          <div class="section-head">
+            <h2>Landmarks</h2>
+            <button id="refreshLandmarks" type="button">Refresh</button>
+          </div>
+          <div id="landmarks" class="landmarks"></div>
+        </div>
+      </aside>
+    </main>
+    <script src="/static/app.js" type="module"></script>
+  </body>
+</html>
+

@@ -1,0 +1,356 @@
+.admin-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+
+.side-nav {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 24px 18px;
+  border-right: 1px solid var(--paper-line);
+  background: rgba(251, 249, 244, 0.82);
+}
+
+.side-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 42px;
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+
+.side-brand svg {
+  width: 32px;
+  height: 32px;
+  color: var(--accent-500);
+}
+
+.side-links {
+  display: grid;
+  gap: 6px;
+}
+
+.side-links a {
+  position: relative;
+  padding: 10px 10px 10px 18px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.side-links a::before {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  width: 4px;
+  height: 4px;
+  background: var(--accent-500);
+  content: "";
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.side-links a:hover,
+.side-links a.active {
+  color: var(--text-primary);
+  background: rgba(62, 90, 56, 0.08);
+}
+
+.side-links a:hover::before,
+.side-links a.active::before {
+  opacity: 1;
+}
+
+.admin-main {
+  min-width: 0;
+  padding: 28px 36px 48px;
+}
+
+.admin-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  border: 1px solid rgba(168, 120, 56, 0.32);
+  border-radius: var(--radius-pill);
+  padding: 0 12px;
+  color: var(--gold);
+  background: rgba(168, 120, 56, 0.08);
+  font-size: 12px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metric-tile,
+.work-tile {
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: var(--shadow-card);
+}
+
+.metric-tile {
+  min-height: 210px;
+  padding: 22px;
+}
+
+.span-5 { grid-column: span 5; }
+.span-4 { grid-column: span 4; }
+.span-3 { grid-column: span 3; }
+.span-6 { grid-column: span 6; }
+.span-7 { grid-column: span 7; }
+.span-12 { grid-column: span 12; }
+
+.big-number {
+  margin: 12px 0 4px;
+  font-family: var(--font-display);
+  font-size: clamp(56px, 7vw, 96px);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend {
+  color: var(--accent-500);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.line-chart {
+  position: relative;
+  height: 240px;
+  padding: 24px;
+}
+
+.line-chart svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.rank-list {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+}
+
+.rank-item {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(26, 31, 27, 0.08);
+  padding-bottom: 10px;
+}
+
+.knowledge-grid {
+  display: grid;
+  grid-template-columns: 28% 12% 1fr;
+  gap: 16px;
+}
+
+.doc-tree,
+.version-rail,
+.doc-preview,
+.replay-panel,
+.experiment-panel,
+.atmosphere-card {
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: var(--shadow-card);
+}
+
+.doc-tree,
+.version-rail,
+.doc-preview {
+  min-height: 680px;
+  padding: 20px;
+}
+
+.scan-document {
+  position: relative;
+  height: 180px;
+  overflow: hidden;
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(90deg, rgba(62, 90, 56, 0.08) 1px, transparent 1px),
+    #FBF9F4;
+  background-size: 18px 18px;
+}
+
+.scan-document::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 56px;
+  background: linear-gradient(180deg, transparent, rgba(232, 200, 150, 0.45), transparent);
+  content: "";
+  animation: scan-line 2.8s var(--ease-glide) infinite;
+}
+
+.chunk {
+  margin-top: 14px;
+  border-left: 2px solid var(--accent-500);
+  padding: 12px 14px;
+  background: rgba(62, 90, 56, 0.08);
+}
+
+.replay-tracks {
+  display: grid;
+  gap: 14px;
+  margin: 24px 0;
+}
+
+.track {
+  position: relative;
+  height: 72px;
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-md);
+  background: rgba(251, 249, 244, 0.82);
+}
+
+.wave {
+  position: absolute;
+  inset: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wave span {
+  width: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-500);
+}
+
+.event-dot {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gold);
+  transform: translate(-50%, -50%);
+}
+
+.cursor-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 46%;
+  width: 1px;
+  background: var(--ember);
+}
+
+.replay-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.experiment-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.editor-mock {
+  min-height: 320px;
+  padding: 18px;
+  border-radius: var(--radius-sm);
+  color: #ECE9E2;
+  background: #151918;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.thermometer {
+  position: relative;
+  height: 46px;
+  overflow: hidden;
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-pill);
+  background: rgba(26, 31, 27, 0.06);
+}
+
+.thermometer span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 64%;
+  background: linear-gradient(90deg, var(--accent-500), var(--gold));
+}
+
+.atmosphere-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.atmosphere-card {
+  overflow: hidden;
+}
+
+.atmosphere-card img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.atmosphere-card div {
+  padding: 14px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+}
+
+@media (max-width: 980px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .side-nav {
+    position: static;
+    height: auto;
+  }
+
+  .dashboard-grid,
+  .knowledge-grid,
+  .replay-detail,
+  .experiment-grid,
+  .atmosphere-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-3,
+  .span-4,
+  .span-5,
+  .span-6,
+  .span-7,
+  .span-12 {
+    grid-column: span 1;
+  }
+}
+

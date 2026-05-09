@@ -1,0 +1,22 @@
+{
+  "name": "aether-guide",
+  "private": true,
+  "workspaces": [
+    "apps/web-tourist",
+    "apps/web-admin",
+    "packages/design-system"
+  ],
+  "scripts": {
+    "web:dev:tourist": "npm --workspace @aether/web-tourist run dev",
+    "web:dev:admin": "npm --workspace @aether/web-admin run dev",
+    "web:build": "npm --workspace @aether/web-tourist run build && npm --workspace @aether/web-admin run build",
+    "web:lint": "npm --workspace @aether/web-tourist run lint && npm --workspace @aether/web-admin run lint",
+    "web:typecheck": "npm --workspace @aether/web-tourist run typecheck && npm --workspace @aether/web-admin run typecheck"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.17",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3"
+  }
+}
+

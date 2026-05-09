@@ -1,0 +1,37 @@
+[project]
+name = "aether-api"
+version = "0.1.0"
+description = "FastAPI gateway and orchestration service for Aether Guide."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "aiosqlite>=0.20.0",
+  "alembic>=1.13.3",
+  "arq>=0.26.1",
+  "fastapi>=0.115.0",
+  "httpx>=0.27.2",
+  "pydantic>=2.9.2",
+  "pydantic-settings>=2.6.1",
+  "pyyaml>=6.0.2",
+  "redis>=5.1.1",
+  "sqlalchemy[asyncio]>=2.0.36",
+  "uvicorn[standard]>=0.32.0",
+]
+
+[dependency-groups]
+dev = [
+  "mypy>=1.13.0",
+  "pytest>=8.3.3",
+  "pytest-asyncio>=0.24.0",
+  "ruff>=0.7.1",
+  "types-PyYAML>=6.0.12.20240917",
+]
+ai = [
+  "litellm>=1.52.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["aether_api"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

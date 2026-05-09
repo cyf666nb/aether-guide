@@ -1,0 +1,14 @@
+@import "@aether/design-system/styles.css";
+@import "tailwindcss";
+
+:root[data-theme="linjing"] body {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(196, 146, 74, 0.08), transparent 28%),
+    linear-gradient(180deg, #0B0E10 0%, #131719 100%);
+}
+
+.linjing-shell {
+  min-height: 100vh;
+  background: var(--stone-void);
+}
+

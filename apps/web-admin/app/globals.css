@@ -1,0 +1,15 @@
+@import "@aether/design-system/styles.css";
+@import "tailwindcss";
+
+:root[data-theme="zhaji"] body {
+  background:
+    linear-gradient(90deg, rgba(26, 31, 27, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, #F6F3EC 0%, #F0EADF 100%);
+  background-size: 48px 48px, 100% 100%;
+}
+
+.zhaji-shell {
+  min-height: 100vh;
+  color: var(--text-primary);
+}
+

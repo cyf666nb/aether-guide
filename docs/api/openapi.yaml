@@ -1,0 +1,1898 @@
+openapi: 3.1.0
+info:
+  title: Aether Guide API
+  version: 0.1.0
+paths:
+  /api/v1/sessions:
+    post:
+      tags:
+      - tourist
+      summary: Create Session
+      operationId: create_session_api_v1_sessions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_SessionDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/sessions/{session_id}/photo:
+    post:
+      tags:
+      - tourist
+      summary: Identify Photo
+      operationId: identify_photo_api_v1_sessions__session_id__photo_post
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhotoSceneRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_PhotoSceneResponse_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/landmarks:
+    get:
+      tags:
+      - tourist
+      summary: List Landmarks
+      operationId: list_landmarks_api_v1_landmarks_get
+      parameters:
+      - name: scenic_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Scenic Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_LandmarkListDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/feedback:
+    post:
+      tags:
+      - tourist
+      summary: Submit Feedback
+      operationId: submit_feedback_api_v1_feedback_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_FeedbackDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/location/visual:
+    post:
+      tags:
+      - location
+      summary: Locate Visual
+      operationId: locate_visual_api_v1_location_visual_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisualLocationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_LocationResult_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/location/qr:
+    post:
+      tags:
+      - location
+      summary: Locate Qr
+      operationId: locate_qr_api_v1_location_qr_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QRLocationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_LocationResult_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/location/conversational:
+    post:
+      tags:
+      - location
+      summary: Locate Conversational
+      operationId: locate_conversational_api_v1_location_conversational_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationalLocationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_LocationResult_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/location/fuse:
+    post:
+      tags:
+      - location
+      summary: Fuse Location
+      operationId: fuse_location_api_v1_location_fuse_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FuseLocationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_LocationResult_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/location/trail:
+    delete:
+      tags:
+      - location
+      summary: Clear Trail
+      operationId: clear_trail_api_v1_location_trail_delete
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClearTrailRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_dict_str__bool__'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/recommendations/route:
+    get:
+      tags:
+      - recommendations
+      summary: Recommend Route
+      operationId: recommend_route_api_v1_recommendations_route_get
+      parameters:
+      - name: scenic_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Scenic Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_RouteRecommendationDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/safety/lost:
+    post:
+      tags:
+      - safety
+      summary: Report Lost
+      operationId: report_lost_api_v1_safety_lost_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LostRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_LostResponseDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/safety/emergency-points:
+    get:
+      tags:
+      - safety
+      summary: Emergency Points
+      operationId: emergency_points_api_v1_safety_emergency_points_get
+      parameters:
+      - name: scenic_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Scenic Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_list_EmergencyPointDTO__'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/scenic/{scenic_id}/offline-pack:
+    get:
+      tags:
+      - offline
+      summary: Offline Pack
+      operationId: offline_pack_api_v1_scenic__scenic_id__offline_pack_get
+      parameters:
+      - name: scenic_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Scenic Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_OfflinePackDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/v1/documents:
+    post:
+      tags:
+      - admin
+      summary: Upload Document
+      operationId: upload_document_admin_v1_documents_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadDocumentRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_DocumentDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/v1/documents/{document_id}/progress:
+    get:
+      tags:
+      - admin
+      summary: Document Progress
+      operationId: document_progress_admin_v1_documents__document_id__progress_get
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Document Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_IndexProgressDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/v1/personas:
+    post:
+      tags:
+      - admin
+      summary: Upsert Persona
+      operationId: upsert_persona_admin_v1_personas_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonaRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_PersonaDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/v1/prompts/experiments:
+    post:
+      tags:
+      - admin
+      summary: Create Prompt Experiment
+      operationId: create_prompt_experiment_admin_v1_prompts_experiments_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptExperimentRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_PromptExperimentDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/v1/dashboard/overview:
+    get:
+      tags:
+      - admin
+      summary: Dashboard Overview
+      operationId: dashboard_overview_admin_v1_dashboard_overview_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_DashboardOverviewDTO_'
+  /admin/v1/sessions/{session_id}/replay:
+    get:
+      tags:
+      - admin
+      summary: Session Replay
+      operationId: session_replay_admin_v1_sessions__session_id__replay_get
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_SessionReplayDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/v1/turns/{turn_id}/label:
+    post:
+      tags:
+      - admin
+      summary: Label Turn
+      operationId: label_turn_admin_v1_turns__turn_id__label_post
+      parameters:
+      - name: turn_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Turn Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurnLabelRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_TurnLabelDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /healthz:
+    get:
+      tags:
+      - system
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+  /readyz:
+    get:
+      tags:
+      - system
+      summary: Readyz
+      operationId: readyz_readyz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Readyz Readyz Get
+components:
+  schemas:
+    BaseResponse_DashboardOverviewDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/DashboardOverviewDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[DashboardOverviewDTO]
+    BaseResponse_DocumentDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/DocumentDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[DocumentDTO]
+    BaseResponse_FeedbackDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/FeedbackDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[FeedbackDTO]
+    BaseResponse_IndexProgressDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/IndexProgressDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[IndexProgressDTO]
+    BaseResponse_LandmarkListDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/LandmarkListDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[LandmarkListDTO]
+    BaseResponse_LocationResult_:
+      properties:
+        data:
+          $ref: '#/components/schemas/LocationResult'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[LocationResult]
+    BaseResponse_LostResponseDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/LostResponseDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[LostResponseDTO]
+    BaseResponse_OfflinePackDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/OfflinePackDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[OfflinePackDTO]
+    BaseResponse_PersonaDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/PersonaDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[PersonaDTO]
+    BaseResponse_PhotoSceneResponse_:
+      properties:
+        data:
+          $ref: '#/components/schemas/PhotoSceneResponse'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[PhotoSceneResponse]
+    BaseResponse_PromptExperimentDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/PromptExperimentDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[PromptExperimentDTO]
+    BaseResponse_RouteRecommendationDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/RouteRecommendationDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[RouteRecommendationDTO]
+    BaseResponse_SessionDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/SessionDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[SessionDTO]
+    BaseResponse_SessionReplayDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/SessionReplayDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[SessionReplayDTO]
+    BaseResponse_TurnLabelDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/TurnLabelDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[TurnLabelDTO]
+    BaseResponse_dict_str__bool__:
+      properties:
+        data:
+          additionalProperties:
+            type: boolean
+          type: object
+          title: Data
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[dict[str, bool]]
+    BaseResponse_list_EmergencyPointDTO__:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/EmergencyPointDTO'
+          type: array
+          title: Data
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[list[EmergencyPointDTO]]
+    ClearTrailRequest:
+      properties:
+        user_id:
+          type: string
+          title: User Id
+        scenic_id:
+          type: string
+          title: Scenic Id
+      additionalProperties: false
+      type: object
+      required:
+      - user_id
+      - scenic_id
+      title: ClearTrailRequest
+    ConversationalLocationRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        scenic_id:
+          type: string
+          title: Scenic Id
+        description:
+          type: string
+          maxLength: 1000
+          minLength: 2
+          title: Description
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      - description
+      title: ConversationalLocationRequest
+    CreateSessionRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        scenic_id:
+          type: string
+          minLength: 1
+          title: Scenic Id
+        user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+        persona_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Persona Id
+        locale:
+          type: string
+          title: Locale
+          default: zh-CN
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      title: CreateSessionRequest
+    DashboardOverviewDTO:
+      properties:
+        active_sessions:
+          type: integer
+          title: Active Sessions
+        token_cost_usd_today:
+          type: number
+          title: Token Cost Usd Today
+        cache_hit_rate:
+          type: number
+          title: Cache Hit Rate
+        nps:
+          type: number
+          title: Nps
+        latency:
+          items:
+            $ref: '#/components/schemas/TimedMetric'
+          type: array
+          title: Latency
+      additionalProperties: false
+      type: object
+      required:
+      - active_sessions
+      - token_cost_usd_today
+      - cache_hit_rate
+      - nps
+      - latency
+      title: DashboardOverviewDTO
+    DocumentDTO:
+      properties:
+        id:
+          type: string
+          title: Id
+        scenic_id:
+          type: string
+          title: Scenic Id
+        title:
+          type: string
+          title: Title
+        source_uri:
+          type: string
+          title: Source Uri
+        version:
+          type: string
+          title: Version
+        status:
+          $ref: '#/components/schemas/DocumentStatus'
+        indexed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Indexed At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - scenic_id
+      - title
+      - source_uri
+      - version
+      - status
+      title: DocumentDTO
+    DocumentStatus:
+      type: string
+      enum:
+      - queued
+      - indexing
+      - ready
+      - failed
+      title: DocumentStatus
+    EmergencyPointDTO:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        phone:
+          type: string
+          title: Phone
+        geo_point:
+          $ref: '#/components/schemas/GeoPoint'
+        walk_minutes:
+          type: integer
+          minimum: 0.0
+          title: Walk Minutes
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - name
+      - phone
+      - geo_point
+      - walk_minutes
+      title: EmergencyPointDTO
+    FeedbackDTO:
+      properties:
+        id:
+          type: string
+          title: Id
+        session_id:
+          type: string
+          title: Session Id
+        accepted:
+          type: boolean
+          title: Accepted
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - session_id
+      - accepted
+      title: FeedbackDTO
+    FeedbackRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        session_id:
+          type: string
+          title: Session Id
+        rating:
+          type: integer
+          maximum: 5.0
+          minimum: 1.0
+          title: Rating
+        comment:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Comment
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - rating
+      title: FeedbackRequest
+    FuseLocationRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        scenic_id:
+          type: string
+          title: Scenic Id
+        user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+        inputs:
+          items:
+            $ref: '#/components/schemas/LocationInput'
+          type: array
+          minItems: 1
+          title: Inputs
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      - inputs
+      title: FuseLocationRequest
+    GeoPoint:
+      properties:
+        lat:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+          title: Lat
+        lng:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+          title: Lng
+        accuracy_m:
+          anyOf:
+          - type: number
+            minimum: 0.0
+          - type: 'null'
+          title: Accuracy M
+      additionalProperties: false
+      type: object
+      required:
+      - lat
+      - lng
+      title: GeoPoint
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    IndexProgressDTO:
+      properties:
+        document_id:
+          type: string
+          title: Document Id
+        status:
+          $ref: '#/components/schemas/DocumentStatus'
+        percent:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Percent
+        message:
+          type: string
+          title: Message
+      additionalProperties: false
+      type: object
+      required:
+      - document_id
+      - status
+      - percent
+      - message
+      title: IndexProgressDTO
+    LandmarkDTO:
+      properties:
+        id:
+          type: string
+          title: Id
+        scenic_id:
+          type: string
+          title: Scenic Id
+        name:
+          type: string
+          title: Name
+        summary:
+          type: string
+          title: Summary
+        geo_point:
+          $ref: '#/components/schemas/GeoPoint'
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+        avg_duration_min:
+          type: integer
+          minimum: 1.0
+          title: Avg Duration Min
+        audio_cache_uri:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Audio Cache Uri
+        emergency_nearby:
+          items:
+            type: string
+          type: array
+          title: Emergency Nearby
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - scenic_id
+      - name
+      - summary
+      - geo_point
+      - tags
+      - avg_duration_min
+      - emergency_nearby
+      title: LandmarkDTO
+    LandmarkListDTO:
+      properties:
+        scenic_id:
+          type: string
+          title: Scenic Id
+        landmarks:
+          items:
+            $ref: '#/components/schemas/LandmarkDTO'
+          type: array
+          title: Landmarks
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      - landmarks
+      title: LandmarkListDTO
+    LocationInput:
+      properties:
+        source:
+          $ref: '#/components/schemas/LocationSource'
+        point:
+          $ref: '#/components/schemas/GeoPoint'
+        confidence:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Confidence
+      additionalProperties: false
+      type: object
+      required:
+      - source
+      - point
+      - confidence
+      title: LocationInput
+    LocationResult:
+      properties:
+        status:
+          type: string
+          title: Status
+        scenic_id:
+          type: string
+          title: Scenic Id
+        landmark_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Landmark Id
+        point:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPoint'
+          - type: 'null'
+        confidence:
+          type: number
+          title: Confidence
+        follow_up:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Follow Up
+      additionalProperties: false
+      type: object
+      required:
+      - status
+      - scenic_id
+      - landmark_id
+      - point
+      - confidence
+      title: LocationResult
+    LocationSource:
+      type: string
+      enum:
+      - gps
+      - vps
+      - qr
+      - conversational
+      - pdr
+      title: LocationSource
+    LostRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        scenic_id:
+          type: string
+          title: Scenic Id
+        user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+        current_location:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPoint'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      title: LostRequest
+    LostResponseDTO:
+      properties:
+        message:
+          type: string
+          title: Message
+        nearest_points:
+          items:
+            $ref: '#/components/schemas/EmergencyPointDTO'
+          type: array
+          title: Nearest Points
+        call_hint:
+          type: string
+          title: Call Hint
+      additionalProperties: false
+      type: object
+      required:
+      - message
+      - nearest_points
+      - call_hint
+      title: LostResponseDTO
+    OfflinePackDTO:
+      properties:
+        scenic_id:
+          type: string
+          title: Scenic Id
+        version:
+          type: string
+          title: Version
+        size_mb:
+          type: integer
+          title: Size Mb
+        assets:
+          items:
+            type: string
+          type: array
+          title: Assets
+        generated_at:
+          type: string
+          format: date-time
+          title: Generated At
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      - version
+      - size_mb
+      - assets
+      - generated_at
+      title: OfflinePackDTO
+    PersonaDTO:
+      properties:
+        id:
+          type: string
+          title: Id
+        scenic_id:
+          type: string
+          title: Scenic Id
+        name:
+          type: string
+          title: Name
+        voice_id:
+          type: string
+          title: Voice Id
+        avatar_id:
+          type: string
+          title: Avatar Id
+        version:
+          type: string
+          title: Version
+        status:
+          type: string
+          title: Status
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - scenic_id
+      - name
+      - voice_id
+      - avatar_id
+      - version
+      - status
+      title: PersonaDTO
+    PersonaRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        scenic_id:
+          type: string
+          title: Scenic Id
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Name
+        voice_id:
+          type: string
+          title: Voice Id
+        avatar_id:
+          type: string
+          title: Avatar Id
+        system_prompt:
+          type: string
+          maxLength: 8000
+          minLength: 10
+          title: System Prompt
+        version:
+          type: string
+          title: Version
+          default: v1
+        status:
+          type: string
+          title: Status
+          default: draft
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      - name
+      - voice_id
+      - avatar_id
+      - system_prompt
+      title: PersonaRequest
+    PhotoSceneRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        image_base64:
+          type: string
+          minLength: 16
+          title: Image Base64
+        scenic_id:
+          type: string
+          title: Scenic Id
+        gps_hint:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPoint'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - image_base64
+      - scenic_id
+      title: PhotoSceneRequest
+    PhotoSceneResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+        landmark_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Landmark Id
+        landmark_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Landmark Name
+        confidence:
+          type: number
+          title: Confidence
+        narration:
+          type: string
+          title: Narration
+        follow_up:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Follow Up
+      additionalProperties: false
+      type: object
+      required:
+      - status
+      - landmark_id
+      - landmark_name
+      - confidence
+      - narration
+      title: PhotoSceneResponse
+    PromptExperimentDTO:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        traffic_split:
+          type: number
+          title: Traffic Split
+        metric:
+          type: string
+          title: Metric
+        status:
+          type: string
+          title: Status
+        winner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Winner
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - name
+      - traffic_split
+      - metric
+      - status
+      title: PromptExperimentDTO
+    PromptExperimentRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        name:
+          type: string
+          maxLength: 120
+          minLength: 1
+          title: Name
+        variant_a:
+          type: string
+          title: Variant A
+        variant_b:
+          type: string
+          title: Variant B
+        traffic_split:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Traffic Split
+          default: 0.5
+        metric:
+          type: string
+          title: Metric
+          default: satisfaction
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - variant_a
+      - variant_b
+      title: PromptExperimentRequest
+    QRLocationRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        scenic_id:
+          type: string
+          title: Scenic Id
+        poi_id:
+          type: string
+          title: Poi Id
+        token:
+          type: string
+          minLength: 8
+          title: Token
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      - poi_id
+      - token
+      title: QRLocationRequest
+    RouteRecommendationDTO:
+      properties:
+        scenic_id:
+          type: string
+          title: Scenic Id
+        total_walk_minutes:
+          type: integer
+          title: Total Walk Minutes
+        stops:
+          items:
+            $ref: '#/components/schemas/RouteStopDTO'
+          type: array
+          title: Stops
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      - total_walk_minutes
+      - stops
+      title: RouteRecommendationDTO
+    RouteStopDTO:
+      properties:
+        landmark_id:
+          type: string
+          title: Landmark Id
+        name:
+          type: string
+          title: Name
+        walk_minutes_from_previous:
+          type: integer
+          minimum: 0.0
+          title: Walk Minutes From Previous
+        reason:
+          type: string
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - landmark_id
+      - name
+      - walk_minutes_from_previous
+      - reason
+      title: RouteStopDTO
+    SessionDTO:
+      properties:
+        id:
+          type: string
+          title: Id
+        user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+        scenic_id:
+          type: string
+          title: Scenic Id
+        persona_id:
+          type: string
+          title: Persona Id
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - user_id
+      - scenic_id
+      - persona_id
+      - status
+      - started_at
+      title: SessionDTO
+    SessionReplayDTO:
+      properties:
+        session_id:
+          type: string
+          title: Session Id
+        user_waveform_uri:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Waveform Uri
+        tts_waveform_uri:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tts Waveform Uri
+        events:
+          items:
+            additionalProperties:
+              type: string
+            type: object
+          type: array
+          title: Events
+        retrieved_chunks:
+          items:
+            type: string
+          type: array
+          title: Retrieved Chunks
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - user_waveform_uri
+      - tts_waveform_uri
+      - events
+      - retrieved_chunks
+      title: SessionReplayDTO
+    SessionStatus:
+      type: string
+      enum:
+      - active
+      - ended
+      title: SessionStatus
+    TimedMetric:
+      properties:
+        name:
+          type: string
+          title: Name
+        p50_ms:
+          type: integer
+          title: P50 Ms
+        p95_ms:
+          type: integer
+          title: P95 Ms
+        p99_ms:
+          type: integer
+          title: P99 Ms
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - p50_ms
+      - p95_ms
+      - p99_ms
+      title: TimedMetric
+    TurnLabelDTO:
+      properties:
+        turn_id:
+          type: string
+          title: Turn Id
+        accepted:
+          type: boolean
+          title: Accepted
+      additionalProperties: false
+      type: object
+      required:
+      - turn_id
+      - accepted
+      title: TurnLabelDTO
+    TurnLabelRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        label:
+          type: string
+          maxLength: 80
+          minLength: 1
+          title: Label
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Notes
+      additionalProperties: false
+      type: object
+      required:
+      - label
+      title: TurnLabelRequest
+    UploadDocumentRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        scenic_id:
+          type: string
+          title: Scenic Id
+        title:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Title
+        source_uri:
+          type: string
+          minLength: 1
+          title: Source Uri
+        version:
+          type: string
+          title: Version
+          default: v1
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      - title
+      - source_uri
+      title: UploadDocumentRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    VisualLocationRequest:
+      properties:
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Idempotency Key
+          description: Client-generated idempotency key for safe retries.
+        scenic_id:
+          type: string
+          title: Scenic Id
+        image_base64:
+          type: string
+          minLength: 16
+          title: Image Base64
+        gps_hint:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPoint'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - scenic_id
+      - image_base64
+      title: VisualLocationRequest

@@ -1,0 +1,17 @@
+{
+  "name": "@aether/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css",
+    "./icons": "./src/icons.tsx",
+    "./typography": "./src/typography.tsx",
+    "./demo-data": "./src/demo-data.ts"
+  },
+  "dependencies": {
+    "react": "^19.2.1"
+  }
+}
+
