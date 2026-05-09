@@ -3,6 +3,44 @@ info:
   title: Aether Guide API
   version: 0.1.0
 paths:
+  /api/v1/auth/anonymous:
+    post:
+      tags:
+      - auth
+      summary: Tourist Anonymous
+      operationId: tourist_anonymous_api_v1_auth_anonymous_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_TokenDTO_'
+  /admin/v1/auth/login:
+    post:
+      tags:
+      - auth
+      summary: Admin Login
+      operationId: admin_login_admin_v1_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_AdminLoginResponseDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/sessions:
     post:
       tags:
@@ -28,12 +66,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /api/v1/sessions/{session_id}/photo:
     post:
       tags:
       - tourist
       summary: Identify Photo
       operationId: identify_photo_api_v1_sessions__session_id__photo_post
+      security:
+      - HTTPBearer: []
       parameters:
       - name: session_id
         in: path
@@ -66,6 +108,8 @@ paths:
       - tourist
       summary: List Landmarks
       operationId: list_landmarks_api_v1_landmarks_get
+      security:
+      - HTTPBearer: []
       parameters:
       - name: scenic_id
         in: query
@@ -111,6 +155,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /api/v1/location/visual:
     post:
       tags:
@@ -136,6 +182,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /api/v1/location/qr:
     post:
       tags:
@@ -161,6 +209,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /api/v1/location/conversational:
     post:
       tags:
@@ -186,6 +236,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /api/v1/location/fuse:
     post:
       tags:
@@ -211,6 +263,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /api/v1/location/trail:
     delete:
       tags:
@@ -229,19 +283,23 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BaseResponse_dict_str__bool__'
+                $ref: '#/components/schemas/BaseResponse_dict_str__int__'
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /api/v1/recommendations/route:
     get:
       tags:
       - recommendations
       summary: Recommend Route
       operationId: recommend_route_api_v1_recommendations_route_get
+      security:
+      - HTTPBearer: []
       parameters:
       - name: scenic_id
         in: query
@@ -287,12 +345,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /api/v1/safety/emergency-points:
     get:
       tags:
       - safety
       summary: Emergency Points
       operationId: emergency_points_api_v1_safety_emergency_points_get
+      security:
+      - HTTPBearer: []
       parameters:
       - name: scenic_id
         in: query
@@ -319,6 +381,8 @@ paths:
       - offline
       summary: Offline Pack
       operationId: offline_pack_api_v1_scenic__scenic_id__offline_pack_get
+      security:
+      - HTTPBearer: []
       parameters:
       - name: scenic_id
         in: path
@@ -364,12 +428,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /admin/v1/documents/{document_id}/progress:
     get:
       tags:
       - admin
       summary: Document Progress
       operationId: document_progress_admin_v1_documents__document_id__progress_get
+      security:
+      - HTTPBearer: []
       parameters:
       - name: document_id
         in: path
@@ -415,6 +483,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /admin/v1/prompts/experiments:
     post:
       tags:
@@ -440,6 +510,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /admin/v1/dashboard/overview:
     get:
       tags:
@@ -453,12 +525,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BaseResponse_DashboardOverviewDTO_'
+      security:
+      - HTTPBearer: []
   /admin/v1/sessions/{session_id}/replay:
     get:
       tags:
       - admin
       summary: Session Replay
       operationId: session_replay_admin_v1_sessions__session_id__replay_get
+      security:
+      - HTTPBearer: []
       parameters:
       - name: session_id
         in: path
@@ -485,6 +561,8 @@ paths:
       - admin
       summary: Label Turn
       operationId: label_turn_admin_v1_turns__turn_id__label_post
+      security:
+      - HTTPBearer: []
       parameters:
       - name: turn_id
         in: path
@@ -505,6 +583,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BaseResponse_TurnLabelDTO_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/v1/audit-logs:
+    get:
+      tags:
+      - admin
+      summary: List Audit Logs
+      operationId: list_audit_logs_admin_v1_audit_logs_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse_AuditLogPage_'
         '422':
           description: Validation Error
           content:
@@ -538,13 +655,160 @@ paths:
           description: Successful Response
           content:
             application/json:
-              schema:
-                additionalProperties:
-                  type: string
-                type: object
-                title: Response Readyz Readyz Get
+              schema: {}
 components:
   schemas:
+    AdminLoginRequest:
+      properties:
+        email:
+          type: string
+          maxLength: 240
+          minLength: 3
+          pattern: ^[^@\s]+@[^@\s]+$
+          title: Email
+        password:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Password
+      additionalProperties: false
+      type: object
+      required:
+      - email
+      - password
+      title: AdminLoginRequest
+    AdminLoginResponseDTO:
+      properties:
+        token:
+          $ref: '#/components/schemas/TokenDTO'
+        profile:
+          $ref: '#/components/schemas/AdminProfileDTO'
+      additionalProperties: false
+      type: object
+      required:
+      - token
+      - profile
+      title: AdminLoginResponseDTO
+    AdminProfileDTO:
+      properties:
+        admin_id:
+          type: string
+          title: Admin Id
+        name:
+          type: string
+          title: Name
+        email:
+          type: string
+          title: Email
+        role:
+          type: string
+          title: Role
+      additionalProperties: false
+      type: object
+      required:
+      - admin_id
+      - name
+      - email
+      - role
+      title: AdminProfileDTO
+    AuditLogDTO:
+      properties:
+        id:
+          type: string
+          title: Id
+        admin_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Admin Id
+        action:
+          type: string
+          title: Action
+        target:
+          type: string
+          title: Target
+        at:
+          type: string
+          format: date-time
+          title: At
+        before:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Before
+        after:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: After
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - admin_id
+      - action
+      - target
+      - at
+      title: AuditLogDTO
+    AuditLogPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/AuditLogDTO'
+          type: array
+          title: Items
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      title: AuditLogPage
+    BaseResponse_AdminLoginResponseDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminLoginResponseDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[AdminLoginResponseDTO]
+    BaseResponse_AuditLogPage_:
+      properties:
+        data:
+          $ref: '#/components/schemas/AuditLogPage'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[AuditLogPage]
     BaseResponse_DashboardOverviewDTO_:
       properties:
         data:
@@ -825,6 +1089,26 @@ components:
       - data
       - trace_id
       title: BaseResponse[SessionReplayDTO]
+    BaseResponse_TokenDTO_:
+      properties:
+        data:
+          $ref: '#/components/schemas/TokenDTO'
+        code:
+          type: string
+          title: Code
+          default: OK
+        message:
+          type: string
+          title: Message
+          default: ok
+        trace_id:
+          type: string
+          title: Trace Id
+      type: object
+      required:
+      - data
+      - trace_id
+      title: BaseResponse[TokenDTO]
     BaseResponse_TurnLabelDTO_:
       properties:
         data:
@@ -845,11 +1129,11 @@ components:
       - data
       - trace_id
       title: BaseResponse[TurnLabelDTO]
-    BaseResponse_dict_str__bool__:
+    BaseResponse_dict_str__int__:
       properties:
         data:
           additionalProperties:
-            type: boolean
+            type: integer
           type: object
           title: Data
         code:
@@ -867,7 +1151,7 @@ components:
       required:
       - data
       - trace_id
-      title: BaseResponse[dict[str, bool]]
+      title: BaseResponse[dict[str, int]]
     BaseResponse_list_EmergencyPointDTO__:
       properties:
         data:
@@ -1410,6 +1694,9 @@ components:
         avatar_id:
           type: string
           title: Avatar Id
+        system_prompt:
+          type: string
+          title: System Prompt
         version:
           type: string
           title: Version
@@ -1424,6 +1711,7 @@ components:
       - name
       - voice_id
       - avatar_id
+      - system_prompt
       - version
       - status
       title: PersonaDTO
@@ -1770,6 +2058,33 @@ components:
       - p95_ms
       - p99_ms
       title: TimedMetric
+    TokenDTO:
+      properties:
+        token:
+          type: string
+          title: Token
+        token_type:
+          type: string
+          title: Token Type
+          default: Bearer
+        role:
+          type: string
+          title: Role
+        subject:
+          type: string
+          title: Subject
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      additionalProperties: false
+      type: object
+      required:
+      - token
+      - role
+      - subject
+      - expires_at
+      title: TokenDTO
     TurnLabelDTO:
       properties:
         turn_id:
@@ -1896,3 +2211,8 @@ components:
       - scenic_id
       - image_base64
       title: VisualLocationRequest
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
