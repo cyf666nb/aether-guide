@@ -150,3 +150,74 @@ def test_tourist_anonymous_issues_valid_jwt() -> None:
     decoded = decode_token(get_settings(), token)
     assert decoded["role"] == "tourist"
     assert decoded["sub"].startswith("tourist-")
+
+
+# ---------- Task 6: auth enforcement on routes + WS ------------------------
+
+
+def test_admin_routes_require_admin_token() -> None:
+    with _auth_client() as client:
+        # No token → 401
+        assert client.get("/admin/v1/dashboard/overview").status_code == 401
+        # Tourist token → 403
+        tourist = client.post("/api/v1/auth/anonymous").json()["data"]["token"]
+        assert (
+            client.get(
+                "/admin/v1/dashboard/overview",
+                headers={"Authorization": f"Bearer {tourist}"},
+            ).status_code
+            == 403
+        )
+        # Admin token → 200
+        admin = client.post(
+            "/admin/v1/auth/login",
+            json={"email": "admin@demo", "password": "admin-demo-pass"},
+        ).json()["data"]["token"]["token"]
+        assert (
+            client.get(
+                "/admin/v1/dashboard/overview",
+                headers={"Authorization": f"Bearer {admin}"},
+            ).status_code
+            == 200
+        )
+
+
+def test_tourist_token_cannot_access_admin() -> None:
+    with _auth_client() as client:
+        tourist = client.post("/api/v1/auth/anonymous").json()["data"]["token"]
+        response = client.post(
+            "/admin/v1/documents",
+            headers={"Authorization": f"Bearer {tourist}"},
+            json={
+                "scenic_id": "demo-scenic",
+                "title": "demo",
+                "source_uri": "memory://x",
+                "version": "v1",
+                "idempotency_key": "regtest-1",
+            },
+        )
+        assert response.status_code == 403
+
+
+def test_websocket_rejects_without_token() -> None:
+    from starlette.websockets import WebSocketDisconnect
+
+    with _auth_client() as client:
+        # First create a session (needs tourist token).
+        tourist = client.post("/api/v1/auth/anonymous").json()["data"]["token"]
+        created = client.post(
+            "/api/v1/sessions",
+            headers={"Authorization": f"Bearer {tourist}"},
+            json={
+                "scenic_id": "demo-scenic",
+                "user_id": "regtest",
+                "locale": "zh-CN",
+                "idempotency_key": "ws-regtest",
+            },
+        )
+        session_id = created.json()["data"]["id"]
+        with (
+            pytest.raises(WebSocketDisconnect),
+            client.websocket_connect(f"/api/v1/sessions/{session_id}/stream"),
+        ):
+            pass

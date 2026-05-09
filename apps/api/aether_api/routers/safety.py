@@ -1,13 +1,18 @@
 # SCORE-IMPACT: Safety workflows for lost-tourist and emergency demos.
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from aether_api.auth.dependencies import require_role
 from aether_api.dependencies import RepositoryDep
 from aether_api.schemas.common import BaseResponse
 from aether_api.schemas.safety import EmergencyPointDTO, LostRequest, LostResponseDTO
 from aether_api.services.safety.lost import LostTouristService
 from aether_api.tracing import current_trace_id
 
-router = APIRouter(prefix="/safety", tags=["safety"])
+router = APIRouter(
+    prefix="/safety",
+    tags=["safety"],
+    dependencies=[Depends(require_role("tourist"))],
+)
 
 
 @router.post("/lost", response_model=BaseResponse[LostResponseDTO])

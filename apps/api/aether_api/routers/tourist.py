@@ -1,6 +1,7 @@
 # SCORE-IMPACT: First runnable tourist loop and multimodal API surface.
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
+from aether_api.auth.dependencies import authenticate_websocket, require_role
 from aether_api.dependencies import AIClientDep, RepositoryDep
 from aether_api.schemas.common import BaseResponse
 from aether_api.schemas.feedback import FeedbackDTO, FeedbackRequest
@@ -18,9 +19,14 @@ from aether_api.services.location.vps import VisualPositioningService
 from aether_api.tracing import current_trace_id, new_trace_id, set_trace_id
 
 router = APIRouter(tags=["tourist"])
+_tourist_dep = [Depends(require_role("tourist"))]
 
 
-@router.post("/sessions", response_model=BaseResponse[SessionDTO])
+@router.post(
+    "/sessions",
+    response_model=BaseResponse[SessionDTO],
+    dependencies=_tourist_dep,
+)
 async def create_session(
     payload: CreateSessionRequest,
     repository: RepositoryDep,
@@ -33,6 +39,72 @@ async def create_session(
     return BaseResponse(data=session, trace_id=current_trace_id())
 
 
+@router.post(
+    "/sessions/{session_id}/photo",
+    response_model=BaseResponse[PhotoSceneResponse],
+    dependencies=_tourist_dep,
+)
+async def identify_photo(
+    session_id: str,
+    payload: PhotoSceneRequest,
+    repository: RepositoryDep,
+) -> BaseResponse[PhotoSceneResponse]:
+    await repository.get_session(session_id)
+    service = VisualPositioningService(repository)
+    result = await service.locate_by_photo(
+        scenic_id=payload.scenic_id,
+        image_base64=payload.image_base64,
+        gps_hint=payload.gps_hint,
+    )
+    landmark_name = None
+    if result.landmark_id:
+        landmarks = await repository.list_landmarks(payload.scenic_id)
+        landmark_name = next(
+            (landmark.name for landmark in landmarks if landmark.id == result.landmark_id),
+            None,
+        )
+    response = PhotoSceneResponse(
+        status=result.status,
+        landmark_id=result.landmark_id,
+        landmark_name=landmark_name,
+        confidence=result.confidence,
+        narration="This is a demo VPS identification result.",
+        follow_up=result.follow_up,
+    )
+    return BaseResponse(data=response, trace_id=current_trace_id())
+
+
+@router.get(
+    "/landmarks",
+    response_model=BaseResponse[LandmarkListDTO],
+    dependencies=_tourist_dep,
+)
+async def list_landmarks(
+    scenic_id: str,
+    repository: RepositoryDep,
+) -> BaseResponse[LandmarkListDTO]:
+    landmarks = await repository.list_landmarks(scenic_id)
+    return BaseResponse(
+        data=LandmarkListDTO(scenic_id=scenic_id, landmarks=landmarks),
+        trace_id=current_trace_id(),
+    )
+
+
+@router.post(
+    "/feedback",
+    response_model=BaseResponse[FeedbackDTO],
+    dependencies=_tourist_dep,
+)
+async def submit_feedback(
+    payload: FeedbackRequest,
+    repository: RepositoryDep,
+) -> BaseResponse[FeedbackDTO]:
+    feedback = await repository.save_feedback(payload)
+    return BaseResponse(data=feedback, trace_id=current_trace_id())
+
+
+# WebSocket: can't use HTTP Depends for auth — browsers don't send Authorization
+# on the upgrade handshake. Validate the JWT from `?token=` instead.
 @router.websocket("/sessions/{session_id}/stream")
 async def stream_session(
     websocket: WebSocket,
@@ -40,6 +112,9 @@ async def stream_session(
     repository: RepositoryDep,
     ai_client: AIClientDep,
 ) -> None:
+    principal = await authenticate_websocket(websocket, required_role="tourist")
+    if principal is None:
+        return
     await websocket.accept()
     session = await repository.get_session(session_id)
     try:
@@ -72,56 +147,3 @@ async def stream_session(
             )
     except WebSocketDisconnect:
         return
-
-
-@router.post("/sessions/{session_id}/photo", response_model=BaseResponse[PhotoSceneResponse])
-async def identify_photo(
-    session_id: str,
-    payload: PhotoSceneRequest,
-    repository: RepositoryDep,
-) -> BaseResponse[PhotoSceneResponse]:
-    await repository.get_session(session_id)
-    service = VisualPositioningService(repository)
-    result = await service.locate_by_photo(
-        scenic_id=payload.scenic_id,
-        image_base64=payload.image_base64,
-        gps_hint=payload.gps_hint,
-    )
-    landmark_name = None
-    if result.landmark_id:
-        landmarks = await repository.list_landmarks(payload.scenic_id)
-        landmark_name = next(
-            (landmark.name for landmark in landmarks if landmark.id == result.landmark_id),
-            None,
-        )
-    response = PhotoSceneResponse(
-        status=result.status,
-        landmark_id=result.landmark_id,
-        landmark_name=landmark_name,
-        confidence=result.confidence,
-        narration="This is a demo VPS identification result.",
-        follow_up=result.follow_up,
-    )
-    return BaseResponse(data=response, trace_id=current_trace_id())
-
-
-@router.get("/landmarks", response_model=BaseResponse[LandmarkListDTO])
-async def list_landmarks(
-    scenic_id: str,
-    repository: RepositoryDep,
-) -> BaseResponse[LandmarkListDTO]:
-    landmarks = await repository.list_landmarks(scenic_id)
-    return BaseResponse(
-        data=LandmarkListDTO(scenic_id=scenic_id, landmarks=landmarks),
-        trace_id=current_trace_id(),
-    )
-
-
-@router.post("/feedback", response_model=BaseResponse[FeedbackDTO])
-async def submit_feedback(
-    payload: FeedbackRequest,
-    repository: RepositoryDep,
-) -> BaseResponse[FeedbackDTO]:
-    feedback = await repository.save_feedback(payload)
-    return BaseResponse(data=feedback, trace_id=current_trace_id())
-

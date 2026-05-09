@@ -1,12 +1,17 @@
 # SCORE-IMPACT: Offline-first scenic package contract.
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Response
 
+from aether_api.auth.dependencies import require_role
 from aether_api.schemas.common import BaseDTO, BaseResponse
 from aether_api.tracing import current_trace_id
 
-router = APIRouter(prefix="/scenic", tags=["offline"])
+router = APIRouter(
+    prefix="/scenic",
+    tags=["offline"],
+    dependencies=[Depends(require_role("tourist"))],
+)
 
 
 class OfflinePackDTO(BaseDTO):

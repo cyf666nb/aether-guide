@@ -1,6 +1,7 @@
 # SCORE-IMPACT: VPS, QR, conversational, and fused positioning APIs.
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from aether_api.auth.dependencies import require_role
 from aether_api.dependencies import RepositoryDep
 from aether_api.schemas.common import BaseResponse
 from aether_api.schemas.location import (
@@ -17,7 +18,11 @@ from aether_api.services.location.qr import QRAnchorService
 from aether_api.services.location.vps import VisualPositioningService
 from aether_api.tracing import current_trace_id
 
-router = APIRouter(prefix="/location", tags=["location"])
+router = APIRouter(
+    prefix="/location",
+    tags=["location"],
+    dependencies=[Depends(require_role("tourist"))],
+)
 
 
 @router.post("/visual", response_model=BaseResponse[LocationResult])

@@ -1,6 +1,7 @@
 # SCORE-IMPACT: Admin knowledge operations, A/B prompts, and analytics.
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from aether_api.auth.dependencies import require_role
 from aether_api.dependencies import RepositoryDep
 from aether_api.schemas.admin import (
     DashboardOverviewDTO,
@@ -18,7 +19,7 @@ from aether_api.schemas.admin import (
 from aether_api.schemas.common import BaseResponse
 from aether_api.tracing import current_trace_id
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["admin"], dependencies=[Depends(require_role("admin"))])
 
 
 @router.post("/documents", response_model=BaseResponse[DocumentDTO])
