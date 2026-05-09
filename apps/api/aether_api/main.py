@@ -12,7 +12,7 @@ from aether_api.auth.seed import seed_admins
 from aether_api.config import Settings, get_settings
 from aether_api.errors import ErrorCode, error_response, register_exception_handlers
 from aether_api.middleware.audit import AuditMiddleware
-from aether_api.middleware.rate_limit import InMemoryRateLimitMiddleware
+from aether_api.middleware.rate_limit_redis import RedisSlidingWindowRateLimit
 from aether_api.middleware.trace import TraceMiddleware
 from aether_api.repository import create_repository
 from aether_api.routers import (
@@ -78,7 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.add_middleware(TraceMiddleware, settings=resolved_settings)
-    app.add_middleware(InMemoryRateLimitMiddleware, settings=resolved_settings)
+    app.add_middleware(RedisSlidingWindowRateLimit, settings=resolved_settings)
     app.add_middleware(AuditMiddleware)
     app.add_middleware(RequestBodyLimitMiddleware)
     # CORS: origins come from settings (env-driven). Production config guards

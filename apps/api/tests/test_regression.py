@@ -276,3 +276,51 @@ def test_cors_rejects_unknown_origin_when_restricted() -> None:
         )
         # The header should only be set for the allowed origin.
         assert response.headers.get("access-control-allow-origin") != "https://evil.example"
+
+
+# ---------- Task 8: Redis sliding-window rate limit -----------------------
+
+
+@pytest.mark.asyncio
+async def test_redis_rate_limit_enforced_and_isolated_by_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fake Redis. Simulate two users — each should have its own budget."""
+    import fakeredis.aioredis
+
+    from aether_api.config import Settings
+    from aether_api.middleware.rate_limit_redis import RedisSlidingWindowRateLimit
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route
+
+    fake = fakeredis.aioredis.FakeRedis(decode_responses=True)
+
+    def from_url(*_args: object, **_kwargs: object) -> object:
+        return fake
+
+    monkeypatch.setattr(
+        "aether_api.middleware.rate_limit_redis.redis_asyncio.from_url",
+        from_url,
+    )
+
+    settings = Settings(rate_limit_per_minute=3)
+
+    async def echo(_req: Request) -> JSONResponse:
+        return JSONResponse({"ok": True})
+
+    app = Starlette(routes=[Route("/echo", echo)])
+    app.add_middleware(RedisSlidingWindowRateLimit, settings=settings)
+
+    from fastapi.testclient import TestClient
+
+    with TestClient(app) as client:
+        # Three hits from IP A succeed.
+        for _ in range(3):
+            assert client.get("/echo", headers={"X-Forwarded-For": "1.2.3.4"}).status_code == 200
+        # Fourth is rate-limited.
+        blocked = client.get("/echo", headers={"X-Forwarded-For": "1.2.3.4"})
+        assert blocked.status_code == 429
+        assert blocked.headers.get("X-RateLimit-Remaining") == "0"
+        assert int(blocked.headers.get("X-RateLimit-Limit") or 0) == 3
