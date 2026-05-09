@@ -88,4 +88,30 @@ def test_websocket_echo_loop(client: TestClient, tourist_token: str) -> None:
 
     assert message["code"] == "OK"
     assert message["data"]["session_id"] == session_id
+
+
+def test_websocket_subprotocol_bearer_auth(
+    client: TestClient, tourist_token: str
+) -> None:
+    """Preferred auth path: pass JWT via Sec-WebSocket-Protocol: bearer.<jwt>."""
+    created = client.post(
+        "/api/v1/sessions",
+        headers={"Authorization": f"Bearer {tourist_token}"},
+        json={
+            "scenic_id": "demo-scenic",
+            "user_id": "visitor-3",
+            "locale": "zh-CN",
+            "idempotency_key": "test-session-3",
+        },
+    )
+    session_id = created.json()["data"]["id"]
+    ws_url = f"/api/v1/sessions/{session_id}/stream"
+    with client.websocket_connect(
+        ws_url,
+        subprotocols=[f"bearer.{tourist_token}"],
+    ) as websocket:
+        websocket.send_json({"type": "user_text", "text": "你好", "locale": "zh-CN"})
+        message = websocket.receive_json()
+    assert message["code"] == "OK"
+    assert message["data"]["session_id"] == session_id
     assert "导览回声" in message["data"]["content"]

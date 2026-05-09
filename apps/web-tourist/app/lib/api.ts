@@ -81,19 +81,40 @@ const TOKEN_KEY = "aether.tourist.token";
 
 function readToken(): string | null {
   if (typeof window !== "object") return null;
-  return window.sessionStorage.getItem(TOKEN_KEY);
+  try {
+    return window.sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
 }
 
 function writeToken(token: string): void {
   if (typeof window !== "object") return;
-  window.sessionStorage.setItem(TOKEN_KEY, token);
+  try {
+    window.sessionStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // Safari private mode / sandboxed iframe — silently degrade.
+  }
+}
+
+function clearToken(): void {
+  if (typeof window !== "object") return;
+  try {
+    window.sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignored
+  }
 }
 
 let bootstrapPromise: Promise<string> | null = null;
 
-export async function ensureTouristToken(): Promise<string> {
-  const cached = readToken();
-  if (cached) return cached;
+export async function ensureTouristToken(forceRefresh = false): Promise<string> {
+  if (!forceRefresh) {
+    const cached = readToken();
+    if (cached) return cached;
+  } else {
+    clearToken();
+  }
   if (bootstrapPromise) return bootstrapPromise;
   bootstrapPromise = (async () => {
     const traceId = randomTraceId();
@@ -114,9 +135,12 @@ export async function ensureTouristToken(): Promise<string> {
 
 // --- Core request helper ----------------------------------------------------
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const traceId = randomTraceId();
-  const token = await ensureTouristToken();
+async function doFetch<T>(
+  path: string,
+  init: RequestInit | undefined,
+  token: string,
+  traceId: string
+): Promise<{ response: Response; payload: ApiEnvelope<T> | null }> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "X-Trace-Id": traceId
@@ -124,9 +148,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (token) headers.Authorization = `Bearer ${token}`;
   Object.assign(headers, (init?.headers as Record<string, string>) ?? {});
 
-  let response: Response;
+  const response = await fetch(`${getApiBase()}${path}`, { ...init, headers });
+  lastTraceId = response.headers.get("X-Trace-Id") ?? traceId;
+  let payload: ApiEnvelope<T> | null = null;
   try {
-    response = await fetch(`${getApiBase()}${path}`, { ...init, headers });
+    payload = (await response.json()) as ApiEnvelope<T>;
+  } catch {
+    payload = null;
+  }
+  return { response, payload };
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const traceId = randomTraceId();
+  let token = await ensureTouristToken();
+
+  let attempt: { response: Response; payload: ApiEnvelope<T> | null };
+  try {
+    attempt = await doFetch<T>(path, init, token, traceId);
   } catch (err) {
     throw new ApiError(
       err instanceof Error ? err.message : "network_error",
@@ -136,14 +175,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     );
   }
 
-  lastTraceId = response.headers.get("X-Trace-Id") ?? traceId;
-  let payload: ApiEnvelope<T> | null = null;
-  try {
-    payload = (await response.json()) as ApiEnvelope<T>;
-  } catch {
-    payload = null;
+  // 401 → token expired or invalid: drop cache, bootstrap fresh, retry once.
+  if (attempt.response.status === 401) {
+    token = await ensureTouristToken(true);
+    try {
+      attempt = await doFetch<T>(path, init, token, traceId);
+    } catch (err) {
+      throw new ApiError(
+        err instanceof Error ? err.message : "network_error",
+        "NETWORK_ERROR",
+        0,
+        traceId
+      );
+    }
   }
 
+  const { response, payload } = attempt;
   if (!response.ok || !payload || payload.code !== "OK") {
     const message = payload?.message ?? `HTTP ${response.status}`;
     const code = payload?.code ?? "HTTP_ERROR";
@@ -196,12 +243,23 @@ export async function getRoute(scenicId = "demo-scenic") {
   }
 }
 
-export async function wsUrl(sessionId: string): Promise<string> {
+export type WsConnectInfo = {
+  url: string;
+  /** Pass these as the second argument to `new WebSocket(url, protocols)`. */
+  protocols: string[];
+};
+
+export async function wsUrl(sessionId: string): Promise<WsConnectInfo> {
   const token = await ensureTouristToken();
   const base = new URL(getApiBase());
   base.protocol = base.protocol === "https:" ? "wss:" : "ws:";
   base.pathname = `/api/v1/sessions/${sessionId}/stream`;
-  if (token) base.searchParams.set("token", token);
-  return base.toString();
+  // Prefer subprotocol auth so the JWT never lands in proxy logs / referer.
+  // Backend (authenticate_websocket) reads `bearer.<jwt>` from
+  // Sec-WebSocket-Protocol and echoes it back.
+  return {
+    url: base.toString(),
+    protocols: token ? [`bearer.${token}`] : []
+  };
 }
 

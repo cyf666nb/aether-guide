@@ -96,15 +96,37 @@ async def authenticate_websocket(
     *,
     required_role: str,
 ) -> Principal | None:
-    """Validate a token from the `?token=` query param. None means auth failed.
+    """Validate a WebSocket's JWT before accepting the handshake.
 
-    Caller is responsible for accepting / closing the websocket. On failure this
-    helper will close with code 1008 (policy violation) and return None.
+    Token is read from, in priority order:
+    1. `Sec-WebSocket-Protocol` subprotocol value `bearer.<jwt>` (preferred —
+       keeps the token out of the URL, proxy logs, and browser history).
+    2. Query parameter `?token=<jwt>` (legacy / fallback).
+
+    When the token comes in via subprotocol, the caller should pass
+    `websocket.state.accepted_subprotocol` to `websocket.accept(subprotocol=...)`
+    so the handshake echoes back the selected subprotocol per RFC 6455.
+
+    On failure the helper closes with code 1008 (policy violation) and returns
+    None.
     """
-    token = websocket.query_params.get("token")
+    token: str | None = None
+    accepted_subprotocol: str | None = None
+
+    raw_protocols = websocket.headers.get("sec-websocket-protocol", "")
+    for candidate in (p.strip() for p in raw_protocols.split(",") if p.strip()):
+        if candidate.startswith("bearer."):
+            token = candidate[len("bearer.") :]
+            accepted_subprotocol = candidate
+            break
+
+    if token is None:
+        token = websocket.query_params.get("token")
+
     if not token:
         await websocket.close(code=1008, reason="auth required")
         return None
+
     settings = websocket.app.state.settings
     assert isinstance(settings, Settings)
     try:
@@ -116,4 +138,7 @@ async def authenticate_websocket(
     if principal.role != required_role:
         await websocket.close(code=1008, reason="role mismatch")
         return None
+
+    # Stash the accepted subprotocol so the route handler can pass it to accept().
+    websocket.state.accepted_subprotocol = accepted_subprotocol
     return principal

@@ -117,7 +117,10 @@ async def stream_session(
     principal = await authenticate_websocket(websocket, required_role="tourist")
     if principal is None:
         return
-    await websocket.accept()
+    # Echo back the accepted subprotocol so the handshake completes per RFC 6455
+    # when the client used Sec-WebSocket-Protocol: bearer.<jwt>.
+    accepted = getattr(websocket.state, "accepted_subprotocol", None)
+    await websocket.accept(subprotocol=accepted) if accepted else await websocket.accept()
     session = await repository.get_session(session_id)
     try:
         while True:

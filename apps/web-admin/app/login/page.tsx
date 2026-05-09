@@ -1,19 +1,26 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { adminLogin, getAdminToken } from "../lib/api";
+
+const IS_DEV = process.env.NODE_ENV === "development";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@demo");
-  const [password, setPassword] = useState("admin-demo-pass");
+  // Only prefill demo credentials in development — never in production bundles.
+  const [email, setEmail] = useState(IS_DEV ? "admin@demo" : "");
+  const [password, setPassword] = useState(IS_DEV ? "admin-demo-pass" : "");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  if (typeof window === "object" && getAdminToken()) {
-    router.replace("/");
-  }
+  // Redirect on mount if already authenticated — must be in an effect,
+  // not render body (React forbids triggering navigation during render).
+  useEffect(() => {
+    if (typeof window === "object" && getAdminToken()) {
+      router.replace("/");
+    }
+  }, [router]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -43,6 +50,7 @@ export default function LoginPage() {
             className="field-line"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
             required
           />
         </label>
@@ -53,11 +61,12 @@ export default function LoginPage() {
             className="field-line"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
             required
           />
         </label>
         {error ? (
-          <p className="type-body" style={{ color: "var(--ember)" }}>
+          <p className="type-body" role="alert" style={{ color: "var(--ember)" }}>
             {error}
           </p>
         ) : null}
@@ -68,4 +77,3 @@ export default function LoginPage() {
     </main>
   );
 }
-

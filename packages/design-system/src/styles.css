@@ -245,6 +245,37 @@ img {
   background: var(--accent-300);
 }
 
+/* Keyboard-first focus ring — WCAG 2.4.7 / 2.1.1.
+   Shows an accent outline only when the user navigates via keyboard
+   (not mouse clicks), keeping the visual language clean for pointer users. */
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-300);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* .field-line is the underline input variant — its border doubles as the
+   affordance so we reuse the color variable but drop the rectangular outline. */
+.field-line:focus-visible {
+  outline: none;
+  border-bottom-color: var(--accent-300);
+  box-shadow: 0 1px 0 var(--accent-300);
+}
+
+/* Respect the user's motion preferences. Decorative loops (breath, scan,
+   shimmer) stop; functional transitions are shortened rather than disabled
+   outright so the UI still feels responsive. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .field-line {
   border: 0;
   border-bottom: 1px solid var(--accent-700);

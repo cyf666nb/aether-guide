@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./linjing.css";
-import { Providers } from "@aether/design-system";
+import { AtmosphereInit, Providers } from "@aether/design-system";
 
 export const metadata: Metadata = {
   title: "临境 · 知行导览",
@@ -18,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN" data-theme="linjing" className="atmosphere-forest">
       <body>
+        <AtmosphereInit />
         <Providers>{children}</Providers>
       </body>
     </html>

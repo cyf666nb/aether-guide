@@ -43,17 +43,29 @@ const TOURIST_KEY = "aether.admin.tourist.token";
 
 function read(key: string): string | null {
   if (typeof window !== "object") return null;
-  return window.sessionStorage.getItem(key);
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
 function write(key: string, value: string): void {
   if (typeof window !== "object") return;
-  window.sessionStorage.setItem(key, value);
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // Safari private mode / sandboxed iframe — silently degrade.
+  }
 }
 
 function clear(key: string): void {
   if (typeof window !== "object") return;
-  window.sessionStorage.removeItem(key);
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // ignored
+  }
 }
 
 export function getAdminToken(): string | null {
@@ -65,10 +77,22 @@ export function clearAdminToken(): void {
   clear(TOURIST_KEY);
 }
 
+function redirectToLogin(): void {
+  if (typeof window !== "object") return;
+  clearAdminToken();
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
+}
+
 let touristBootstrap: Promise<string> | null = null;
-async function ensureTouristToken(): Promise<string> {
-  const cached = read(TOURIST_KEY);
-  if (cached) return cached;
+async function ensureTouristToken(forceRefresh = false): Promise<string> {
+  if (!forceRefresh) {
+    const cached = read(TOURIST_KEY);
+    if (cached) return cached;
+  } else {
+    clear(TOURIST_KEY);
+  }
   if (touristBootstrap) return touristBootstrap;
   touristBootstrap = (async () => {
     const response = await fetch(`${getApiBase()}/api/v1/auth/anonymous`, {
@@ -101,25 +125,51 @@ export function getLastTraceId(): string {
 
 // --- Request helper ---------------------------------------------------------
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const traceId = randomTraceId();
+type Attempt<T> = { response: Response; payload: ApiEnvelope<T> | null };
+
+async function doFetch<T>(
+  path: string,
+  init: RequestInit | undefined,
+  token: string | null,
+  traceId: string
+): Promise<Attempt<T>> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "X-Trace-Id": traceId
   };
-  // Pick the right token: admin paths need admin, public tourist paths need tourist.
-  if (path.startsWith("/admin/")) {
-    const admin = getAdminToken();
-    if (admin) headers.Authorization = `Bearer ${admin}`;
-  } else if (path.startsWith("/api/")) {
-    const tourist = await ensureTouristToken();
-    if (tourist) headers.Authorization = `Bearer ${tourist}`;
-  }
+  if (token) headers.Authorization = `Bearer ${token}`;
   Object.assign(headers, (init?.headers as Record<string, string>) ?? {});
 
-  let response: Response;
+  const response = await fetch(`${getApiBase()}${path}`, { ...init, headers });
+  lastTraceId = response.headers.get("X-Trace-Id") ?? traceId;
+  let payload: ApiEnvelope<T> | null = null;
   try {
-    response = await fetch(`${getApiBase()}${path}`, { ...init, headers });
+    payload = (await response.json()) as ApiEnvelope<T>;
+  } catch {
+    payload = null;
+  }
+  return { response, payload };
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const traceId = randomTraceId();
+  const isAdminPath = path.startsWith("/admin/");
+
+  const pickToken = async (forceRefresh: boolean): Promise<string | null> => {
+    if (isAdminPath) {
+      return getAdminToken();
+    }
+    if (path.startsWith("/api/")) {
+      return await ensureTouristToken(forceRefresh);
+    }
+    return null;
+  };
+
+  let token = await pickToken(false);
+
+  let attempt: Attempt<T>;
+  try {
+    attempt = await doFetch<T>(path, init, token, traceId);
   } catch (err) {
     throw new ApiError(
       err instanceof Error ? err.message : "network_error",
@@ -128,13 +178,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       traceId
     );
   }
-  lastTraceId = response.headers.get("X-Trace-Id") ?? traceId;
-  let payload: ApiEnvelope<T> | null = null;
-  try {
-    payload = (await response.json()) as ApiEnvelope<T>;
-  } catch {
-    payload = null;
+
+  // 401 handling:
+  //   - admin path: token invalid → clear + redirect to /login
+  //   - tourist path: auto-refresh the anonymous token once and retry
+  if (attempt.response.status === 401) {
+    if (isAdminPath) {
+      redirectToLogin();
+    } else {
+      token = await pickToken(true);
+      try {
+        attempt = await doFetch<T>(path, init, token, traceId);
+      } catch (err) {
+        throw new ApiError(
+          err instanceof Error ? err.message : "network_error",
+          "NETWORK_ERROR",
+          0,
+          traceId
+        );
+      }
+    }
   }
+
+  const { response, payload } = attempt;
   if (!response.ok || !payload || payload.code !== "OK") {
     throw new ApiError(
       payload?.message ?? `HTTP ${response.status}`,

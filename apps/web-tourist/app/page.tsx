@@ -41,7 +41,8 @@ export default function TouristHome() {
       .then(async (session) => {
         if (!mounted) return;
         setSessionId(session.id);
-        const socket = new WebSocket(await wsUrl(session.id));
+        const info = await wsUrl(session.id);
+        const socket = new WebSocket(info.url, info.protocols);
         socketRef.current = socket;
         socket.addEventListener("message", (event) => {
           try {
