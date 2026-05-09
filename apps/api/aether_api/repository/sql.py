@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import (
 from aether_api.config import Settings
 from aether_api.errors import AppError, ErrorCode
 from aether_api.models import entities as m
+from aether_api.repository import AdminRecord
 from aether_api.schemas.admin import (
     DashboardOverviewDTO,
     DocumentDTO,
@@ -340,6 +341,63 @@ class SqlRepository:
 
     async def seed_path(self) -> Path:
         return self._settings.seed_data_path
+
+    # -- auth ----------------------------------------------------------------
+
+    async def find_admin_by_email(self, email: str) -> AdminRecord | None:
+        normalized = email.lower()
+        async with self._sessions() as session:
+            row = await session.scalar(
+                select(m.Admin).where(
+                    func.lower(m.Admin.email) == normalized,
+                    m.Admin.deleted_at.is_(None),
+                )
+            )
+            if row is None:
+                return None
+            return AdminRecord(
+                id=row.id,
+                name=row.name,
+                email=row.email,
+                role=row.role,
+                password_hash=row.password_hash,
+            )
+
+    async def upsert_admin(
+        self,
+        *,
+        admin_id: str,
+        name: str,
+        email: str,
+        password_hash: str,
+        role: str,
+    ) -> AdminRecord:
+        async with self._sessions() as session:
+            existing = await session.scalar(
+                select(m.Admin).where(func.lower(m.Admin.email) == email.lower())
+            )
+            if existing is None:
+                row = m.Admin(
+                    id=admin_id,
+                    name=name,
+                    email=email,
+                    role=role,
+                    password_hash=password_hash,
+                )
+                session.add(row)
+            else:
+                existing.name = name
+                existing.role = role
+                existing.password_hash = password_hash
+                row = existing
+            await session.commit()
+            return AdminRecord(
+                id=row.id,
+                name=row.name,
+                email=row.email,
+                role=row.role,
+                password_hash=row.password_hash,
+            )
 
 
 def make_sql_repository(settings: Settings) -> SqlRepository:

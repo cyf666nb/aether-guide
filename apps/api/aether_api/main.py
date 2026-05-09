@@ -7,13 +7,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from aether_api.auth.seed import seed_admins
 from aether_api.config import Settings, get_settings
 from aether_api.errors import register_exception_handlers
 from aether_api.middleware.audit import AuditMiddleware
 from aether_api.middleware.rate_limit import InMemoryRateLimitMiddleware
 from aether_api.middleware.trace import TraceMiddleware
 from aether_api.repository import create_repository
-from aether_api.routers import admin, location, offline, recommendations, safety, tourist
+from aether_api.routers import (
+    admin,
+    auth,
+    location,
+    offline,
+    recommendations,
+    safety,
+    tourist,
+)
 from aether_api.services.ai.client import AIClient
 
 
@@ -21,6 +30,7 @@ from aether_api.services.ai.client import AIClient
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     repository = await create_repository(settings)
+    await seed_admins(settings, repository)
     app.state.settings = settings
     app.state.repository = repository
     app.state.ai_client = AIClient(settings)
@@ -52,6 +62,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     register_exception_handlers(app)
+    app.include_router(auth.tourist_router, prefix=resolved_settings.api_prefix)
+    app.include_router(auth.admin_router, prefix=resolved_settings.admin_prefix)
     app.include_router(tourist.router, prefix=resolved_settings.api_prefix)
     app.include_router(location.router, prefix=resolved_settings.api_prefix)
     app.include_router(recommendations.router, prefix=resolved_settings.api_prefix)

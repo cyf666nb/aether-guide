@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from aether_api.config import Settings
 from aether_api.errors import AppError, ErrorCode
+from aether_api.repository import AdminRecord
 from aether_api.schemas.admin import (
     DashboardOverviewDTO,
     DocumentDTO,
@@ -45,6 +46,7 @@ class InMemoryRepository:
         self._persona_prompts: dict[str, str] = {}
         self._experiments: dict[str, PromptExperimentDTO] = {}
         self._feedback: dict[str, FeedbackDTO] = {}
+        self._admins_by_email: dict[str, AdminRecord] = {}
 
     async def load_seed(self) -> None:
         seed_path = self._settings.seed_data_path
@@ -227,3 +229,27 @@ class InMemoryRepository:
 
     async def seed_path(self) -> Path:
         return self._settings.seed_data_path
+
+    # -- auth ----------------------------------------------------------------
+
+    async def find_admin_by_email(self, email: str) -> AdminRecord | None:
+        return self._admins_by_email.get(email.lower())
+
+    async def upsert_admin(
+        self,
+        *,
+        admin_id: str,
+        name: str,
+        email: str,
+        password_hash: str,
+        role: str,
+    ) -> AdminRecord:
+        record = AdminRecord(
+            id=admin_id,
+            name=name,
+            email=email.lower(),
+            role=role,
+            password_hash=password_hash,
+        )
+        self._admins_by_email[record.email] = record
+        return record

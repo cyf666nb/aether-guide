@@ -37,7 +37,6 @@ files = [
 [[tool.mypy.overrides]]
 module = [
   "fakeredis.*",
-  "passlib.*",
   "litellm.*",
   "freezegun.*",
 ]

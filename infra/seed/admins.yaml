@@ -1,0 +1,10 @@
+# Demo admin accounts.
+# password_hash is a bcrypt(cost=12) hash of the plaintext password shown in
+# the comment. Rotate for any real deployment.
+admins:
+  - id: admin-demo
+    name: Demo Admin
+    email: admin@demo
+    role: admin
+    # password: admin-demo-pass
+    password_hash: "$2b$12$r23aNtPZlisGwGZ9VWpe4udZjbBEo8sAZqU6BonrNkf2xvAkXuOc."

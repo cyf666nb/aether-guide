@@ -10,6 +10,7 @@ The active implementation is chosen by settings.storage_mode.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -26,6 +27,17 @@ from aether_api.schemas.admin import (
 from aether_api.schemas.feedback import FeedbackDTO, FeedbackRequest
 from aether_api.schemas.landmarks import LandmarkDTO
 from aether_api.schemas.sessions import SessionDTO
+
+
+@dataclass(slots=True, frozen=True)
+class AdminRecord:
+    """Internal admin row — not exposed through the public API."""
+
+    id: str
+    name: str
+    email: str
+    role: str
+    password_hash: str
 
 
 class Repository(Protocol):
@@ -92,6 +104,19 @@ class Repository(Protocol):
 
     async def seed_path(self) -> Path: ...
 
+    # -- auth --
+    async def find_admin_by_email(self, email: str) -> AdminRecord | None: ...
+
+    async def upsert_admin(
+        self,
+        *,
+        admin_id: str,
+        name: str,
+        email: str,
+        password_hash: str,
+        role: str,
+    ) -> AdminRecord: ...
+
 
 async def create_repository(settings: Settings) -> Repository:
     """Factory: pick the backend implementation by settings.storage_mode.
@@ -117,4 +142,4 @@ async def create_repository(settings: Settings) -> Repository:
     raise ValueError(f"Unknown storage_mode: {settings.storage_mode}")
 
 
-__all__ = ["Repository", "create_repository"]
+__all__ = ["AdminRecord", "Repository", "create_repository"]

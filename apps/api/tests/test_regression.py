@@ -93,3 +93,60 @@ async def test_storage_mode_database_end_to_end(tmp_path: Path) -> None:
         aclose = getattr(repo, "aclose", None)
         if callable(aclose):
             await aclose()
+
+
+# ---------- Auth (Task 5) regression tests ---------------------------------
+
+
+def _auth_client():
+    from aether_api.main import app
+    from fastapi.testclient import TestClient
+
+    return TestClient(app)
+
+
+def test_admin_login_success_returns_token() -> None:
+    with _auth_client() as client:
+        response = client.post(
+            "/admin/v1/auth/login",
+            json={"email": "admin@demo", "password": "admin-demo-pass"},
+        )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["code"] == "OK"
+    token = payload["data"]["token"]["token"]
+    assert token.count(".") == 2  # three-segment JWT
+    assert payload["data"]["profile"]["email"] == "admin@demo"
+
+
+def test_admin_login_wrong_password_returns_401() -> None:
+    with _auth_client() as client:
+        response = client.post(
+            "/admin/v1/auth/login",
+            json={"email": "admin@demo", "password": "wrong-password"},
+        )
+    assert response.status_code == 401
+    assert response.json()["code"] == "BAD_REQUEST"
+
+
+def test_admin_login_unknown_email_returns_401() -> None:
+    with _auth_client() as client:
+        response = client.post(
+            "/admin/v1/auth/login",
+            json={"email": "nobody@demo", "password": "admin-demo-pass"},
+        )
+    assert response.status_code == 401
+
+
+def test_tourist_anonymous_issues_valid_jwt() -> None:
+    from aether_api.auth.jwt import decode_token
+    from aether_api.config import get_settings
+
+    get_settings.cache_clear()
+    with _auth_client() as client:
+        response = client.post("/api/v1/auth/anonymous")
+    assert response.status_code == 200
+    token = response.json()["data"]["token"]
+    decoded = decode_token(get_settings(), token)
+    assert decoded["role"] == "tourist"
+    assert decoded["sub"].startswith("tourist-")
