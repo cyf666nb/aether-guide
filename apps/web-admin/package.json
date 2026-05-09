@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev --port 3002",
     "build": "next build",
-    "lint": "node ../../scripts/web-lint.mjs .",
+    "lint": "next lint --dir app --dir components && node ../../scripts/web-lint.mjs .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,6 +19,9 @@
   "devDependencies": {
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.6",
-    "@types/react-dom": "^19.2.3"
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^15.5.7",
+    "typescript-eslint": "^8.59.2"
   }
 }

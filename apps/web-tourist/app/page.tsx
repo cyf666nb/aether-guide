@@ -38,10 +38,10 @@ export default function TouristHome() {
   useEffect(() => {
     let mounted = true;
     createSession()
-      .then((session) => {
+      .then(async (session) => {
         if (!mounted) return;
         setSessionId(session.id);
-        const socket = new WebSocket(wsUrl(session.id));
+        const socket = new WebSocket(await wsUrl(session.id));
         socketRef.current = socket;
         socket.addEventListener("message", (event) => {
           try {

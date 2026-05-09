@@ -1,5 +1,10 @@
-import Link from "next/link";
+﻿"use client";
+
 import { AetherLogo } from "@aether/design-system/icons";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { clearAdminToken, getAdminToken } from "../lib/api";
 
 const links = [
   ["概览", "/"],
@@ -10,7 +15,22 @@ const links = [
   ["告警", "/alerts"]
 ];
 
-export function AdminShell({ children, active = "/" }: { children: React.ReactNode; active?: string }) {
+function useRequireAdmin() {
+  const router = useRouter();
+  useEffect(() => {
+    if (typeof window !== "object") return;
+    if (!getAdminToken()) router.replace("/login");
+  }, [router]);
+}
+
+export function AdminShell({
+  children,
+  active = "/"
+}: {
+  children: React.ReactNode;
+  active?: string;
+}) {
+  useRequireAdmin();
   return (
     <main className="zhaji-shell admin-layout">
       <aside className="side-nav">
@@ -20,10 +40,25 @@ export function AdminShell({ children, active = "/" }: { children: React.ReactNo
         </Link>
         <nav className="side-links">
           {links.map(([label, href]) => (
-            <Link className={active === href ? "active" : ""} href={href} key={`${label}-${href}`}>
+            <Link
+              className={active === href ? "active" : ""}
+              href={href}
+              key={`${label}-${href}`}
+            >
               {label}
             </Link>
           ))}
+          <button
+            type="button"
+            className="thin-button"
+            style={{ marginTop: 16 }}
+            onClick={() => {
+              clearAdminToken();
+              window.location.href = "/login";
+            }}
+          >
+            退出登录
+          </button>
         </nav>
       </aside>
       <section className="admin-main">{children}</section>
