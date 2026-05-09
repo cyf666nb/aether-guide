@@ -13,10 +13,32 @@ target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "S", "N"]
+# S101 asserts allowed in tests; S603/S607 subprocess in dev scripts only.
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"apps/api/tests/**" = ["S", "N802", "N806"]
+"tests/**" = ["S", "N802", "N806"]
+"scripts/**" = ["S", "N"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 warn_unused_configs = true
 plugins = ["pydantic.mypy"]
+files = [
+  "apps/api/aether_api",
+  "apps/api/tests",
+  "scripts",
+  "tests/eval",
+]
+
+[[tool.mypy.overrides]]
+module = [
+  "fakeredis.*",
+  "passlib.*",
+  "litellm.*",
+  "freezegun.*",
+]
+ignore_missing_imports = true

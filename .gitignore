@@ -10,6 +10,8 @@ __pycache__/
 .coverage
 htmlcov/
 .env
+.env.local
+.env.*.local
 dist/
 build/
 node_modules/
@@ -18,3 +20,6 @@ apps/web-tourist/.next/
 apps/web-admin/.next/
 apps/web-tourist/out/
 apps/web-admin/out/
+apps/**/out/
+*.tsbuildinfo
+.local/*.log

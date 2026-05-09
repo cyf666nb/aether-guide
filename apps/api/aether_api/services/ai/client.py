@@ -96,7 +96,7 @@ class AIClient:
 
     async def _litellm_answer(self, request: AIRequest, start: float) -> AIResponse:
         try:
-            from litellm import acompletion  # type: ignore[import-not-found]
+            from litellm import acompletion
         except ImportError as exc:
             raise AppError(
                 ErrorCode.ai_provider_unavailable,
