@@ -100,3 +100,18 @@ class TurnLabelDTO(BaseDTO):
     turn_id: str
     accepted: bool
 
+
+class AuditLogDTO(BaseDTO):
+    id: str
+    admin_id: str | None
+    action: str
+    target: str
+    at: datetime
+    before: dict[str, object] | None = None
+    after: dict[str, object] | None = None
+
+
+class AuditLogPage(BaseDTO):
+    items: list[AuditLogDTO]
+    next_cursor: str | None = None
+

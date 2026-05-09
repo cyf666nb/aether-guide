@@ -12,6 +12,8 @@ from aether_api.config import Settings
 from aether_api.errors import AppError, ErrorCode
 from aether_api.repository import AdminRecord
 from aether_api.schemas.admin import (
+    AuditLogDTO,
+    AuditLogPage,
     DashboardOverviewDTO,
     DocumentDTO,
     DocumentStatus,
@@ -47,6 +49,7 @@ class InMemoryRepository:
         self._experiments: dict[str, PromptExperimentDTO] = {}
         self._feedback: dict[str, FeedbackDTO] = {}
         self._admins_by_email: dict[str, AdminRecord] = {}
+        self._audit_logs: list[AuditLogDTO] = []
 
     async def load_seed(self) -> None:
         seed_path = self._settings.seed_data_path
@@ -253,3 +256,43 @@ class InMemoryRepository:
         )
         self._admins_by_email[record.email] = record
         return record
+
+    # -- audit ---------------------------------------------------------------
+
+    async def insert_audit_log(
+        self,
+        *,
+        admin_id: str | None,
+        action: str,
+        target: str,
+        before: dict[str, object] | None,
+        after: dict[str, object] | None,
+    ) -> AuditLogDTO:
+        entry = AuditLogDTO(
+            id=uuid4().hex,
+            admin_id=admin_id,
+            action=action,
+            target=target,
+            at=datetime.now(UTC),
+            before=before,
+            after=after,
+        )
+        self._audit_logs.append(entry)
+        return entry
+
+    async def list_audit_logs(
+        self,
+        *,
+        limit: int,
+        cursor: str | None,
+    ) -> AuditLogPage:
+        # Newest first. Cursor is the id of the last-seen entry.
+        ordered = sorted(self._audit_logs, key=lambda e: e.at, reverse=True)
+        if cursor:
+            for idx, entry in enumerate(ordered):
+                if entry.id == cursor:
+                    ordered = ordered[idx + 1 :]
+                    break
+        page = ordered[:limit]
+        next_cursor = page[-1].id if len(page) == limit and len(ordered) > limit else None
+        return AuditLogPage(items=page, next_cursor=next_cursor)

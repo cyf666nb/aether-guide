@@ -62,19 +62,25 @@ def get_current_principal(
         )
     settings = _settings_from_request(request)
     payload = decode_token(settings, creds.credentials)
-    return _principal_from_payload(payload)
+    principal = _principal_from_payload(payload)
+    request.state.principal = principal
+    return principal
 
 
 def require_role(role: str):  # type: ignore[no-untyped-def]
     """Return a FastAPI dependency that enforces `role`."""
 
-    def _dep(principal: Annotated[Principal, Depends(get_current_principal)]) -> Principal:
+    def _dep(
+        request: Request,
+        principal: Annotated[Principal, Depends(get_current_principal)],
+    ) -> Principal:
         if principal.role != role:
             raise AppError(
                 ErrorCode.bad_request,
                 f"This endpoint requires role '{role}'.",
                 status_code=status.HTTP_403_FORBIDDEN,
             )
+        request.state.principal = principal
         return principal
 
     return _dep

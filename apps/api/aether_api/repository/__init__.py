@@ -16,6 +16,8 @@ from typing import Protocol
 
 from aether_api.config import Settings
 from aether_api.schemas.admin import (
+    AuditLogDTO,
+    AuditLogPage,
     DashboardOverviewDTO,
     DocumentDTO,
     IndexProgressDTO,
@@ -116,6 +118,24 @@ class Repository(Protocol):
         password_hash: str,
         role: str,
     ) -> AdminRecord: ...
+
+    # -- audit --
+    async def insert_audit_log(
+        self,
+        *,
+        admin_id: str | None,
+        action: str,
+        target: str,
+        before: dict[str, object] | None,
+        after: dict[str, object] | None,
+    ) -> AuditLogDTO: ...
+
+    async def list_audit_logs(
+        self,
+        *,
+        limit: int,
+        cursor: str | None,
+    ) -> AuditLogPage: ...
 
 
 async def create_repository(settings: Settings) -> Repository:

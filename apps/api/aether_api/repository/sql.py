@@ -29,6 +29,8 @@ from aether_api.errors import AppError, ErrorCode
 from aether_api.models import entities as m
 from aether_api.repository import AdminRecord
 from aether_api.schemas.admin import (
+    AuditLogDTO,
+    AuditLogPage,
     DashboardOverviewDTO,
     DocumentDTO,
     DocumentStatus,
@@ -398,6 +400,83 @@ class SqlRepository:
                 role=row.role,
                 password_hash=row.password_hash,
             )
+
+    # -- audit ---------------------------------------------------------------
+
+    async def insert_audit_log(
+        self,
+        *,
+        admin_id: str | None,
+        action: str,
+        target: str,
+        before: dict[str, object] | None,
+        after: dict[str, object] | None,
+    ) -> AuditLogDTO:
+        async with self._sessions() as session:
+            at = datetime.now(UTC)
+            row = m.AuditLog(
+                id=uuid4().hex,
+                admin_id=admin_id,
+                action=action,
+                target=target,
+                before=before,
+                after=after,
+                at=at,
+            )
+            session.add(row)
+            await session.commit()
+            return AuditLogDTO(
+                id=row.id,
+                admin_id=row.admin_id,
+                action=row.action,
+                target=row.target,
+                at=row.at,
+                before=row.before,
+                after=row.after,
+            )
+
+    async def list_audit_logs(
+        self,
+        *,
+        limit: int,
+        cursor: str | None,
+    ) -> AuditLogPage:
+        async with self._sessions() as session:
+            stmt = (
+                select(m.AuditLog)
+                .where(m.AuditLog.deleted_at.is_(None))
+                .order_by(m.AuditLog.at.desc(), m.AuditLog.id.desc())
+                .limit(limit + 1)
+            )
+            if cursor:
+                anchor = await session.get(m.AuditLog, cursor)
+                if anchor is not None:
+                    stmt = (
+                        select(m.AuditLog)
+                        .where(
+                            m.AuditLog.deleted_at.is_(None),
+                            m.AuditLog.at < anchor.at,
+                        )
+                        .order_by(m.AuditLog.at.desc(), m.AuditLog.id.desc())
+                        .limit(limit + 1)
+                    )
+            result = await session.scalars(stmt)
+            rows = list(result.all())
+            page = rows[:limit]
+            next_cursor = page[-1].id if len(rows) > limit else None
+            items = [
+                AuditLogDTO(
+                    id=r.id,
+                    admin_id=r.admin_id,
+                    action=r.action,
+                    target=r.target,
+                    at=r.at,
+                    before=r.before,
+                    after=r.after,
+                )
+                for r in page
+            ]
+            return AuditLogPage(items=items, next_cursor=next_cursor)
 
 
 def make_sql_repository(settings: Settings) -> SqlRepository:

@@ -221,3 +221,58 @@ def test_websocket_rejects_without_token() -> None:
             client.websocket_connect(f"/api/v1/sessions/{session_id}/stream"),
         ):
             pass
+
+
+# ---------- Task 7: CORS + Audit persistence -------------------------------
+
+
+def test_audit_log_recorded_on_admin_write() -> None:
+    with _auth_client() as client:
+        admin_token = client.post(
+            "/admin/v1/auth/login",
+            json={"email": "admin@demo", "password": "admin-demo-pass"},
+        ).json()["data"]["token"]["token"]
+        headers = {"Authorization": f"Bearer {admin_token}"}
+
+        doc = client.post(
+            "/admin/v1/documents",
+            headers=headers,
+            json={
+                "scenic_id": "demo-scenic",
+                "title": "audit probe",
+                "source_uri": "memory://audit",
+                "version": "v1",
+                "idempotency_key": "audit-probe",
+            },
+        )
+        assert doc.status_code == 200
+        assert doc.headers.get("X-Audit-Recorded") == "true"
+
+        logs = client.get("/admin/v1/audit-logs?limit=5", headers=headers)
+        assert logs.status_code == 200
+        items = logs.json()["data"]["items"]
+        assert any(
+            entry["action"] == "POST /admin/v1/documents" for entry in items
+        ), items
+
+
+def test_cors_rejects_unknown_origin_when_restricted() -> None:
+    # Build a local app with restricted CORS and check that an Origin outside
+    # the whitelist does not receive Access-Control-Allow-Origin.
+    from aether_api.config import Settings, get_settings
+    from aether_api.main import create_app
+    from fastapi.testclient import TestClient
+
+    get_settings.cache_clear()
+    cfg = Settings(cors_origins=["https://allowed.example"])
+    app = create_app(cfg)
+    with TestClient(app) as client:
+        response = client.options(
+            "/healthz",
+            headers={
+                "Origin": "https://evil.example",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        # The header should only be set for the allowed origin.
+        assert response.headers.get("access-control-allow-origin") != "https://evil.example"
