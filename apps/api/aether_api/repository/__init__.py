@@ -119,6 +119,9 @@ class Repository(Protocol):
         role: str,
     ) -> AdminRecord: ...
 
+    # -- trail --
+    async def clear_user_trail(self, *, user_id: str, scenic_id: str) -> int: ...
+
     # -- audit --
     async def insert_audit_log(
         self,

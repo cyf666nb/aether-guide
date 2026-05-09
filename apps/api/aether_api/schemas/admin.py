@@ -54,6 +54,7 @@ class PersonaDTO(BaseDTO):
     name: str
     voice_id: str
     avatar_id: str
+    system_prompt: str
     version: str
     status: str
 

@@ -287,7 +287,6 @@ async def test_redis_rate_limit_enforced_and_isolated_by_user(
 ) -> None:
     """Fake Redis. Simulate two users — each should have its own budget."""
     import fakeredis.aioredis
-
     from aether_api.config import Settings
     from aether_api.middleware.rate_limit_redis import RedisSlidingWindowRateLimit
     from starlette.applications import Starlette

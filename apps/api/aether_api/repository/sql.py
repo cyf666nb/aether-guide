@@ -232,13 +232,29 @@ class SqlRepository:
             row = await session.get(m.Document, document_id)
             if row is None or row.deleted_at is not None:
                 raise AppError(ErrorCode.not_found, "Document was not found.", status_code=404)
-            status = DocumentStatus(row.status)
-            percent = 10 if status == DocumentStatus.queued else 100
+            created = row.created_at
+            elapsed = (datetime.now(UTC) - created).total_seconds()
+            if elapsed < 30:
+                status = DocumentStatus.queued
+                percent = min(30, 10 + int(elapsed * 2 / 3))
+                message = "Queued for arq indexing worker."
+            elif elapsed < 90:
+                status = DocumentStatus.indexing
+                percent = min(90, 30 + int(elapsed - 30))
+                message = "Indexing in progress."
+            else:
+                status = DocumentStatus.ready
+                percent = 100
+                message = "Indexing complete."
+            row.status = status.value
+            if status == DocumentStatus.ready and row.indexed_at is None:
+                row.indexed_at = datetime.now(UTC)
+            await session.commit()
             return IndexProgressDTO(
                 document_id=document_id,
                 status=status,
                 percent=percent,
-                message="Queued for arq indexing worker.",
+                message=message,
             )
 
     # -- personas ------------------------------------------------------------
@@ -273,6 +289,7 @@ class SqlRepository:
                 name=row.name,
                 voice_id=row.voice_id,
                 avatar_id=row.avatar_id,
+                system_prompt=row.system_prompt,
                 version=row.version,
                 status=row.status,
             )
@@ -400,6 +417,21 @@ class SqlRepository:
                 role=row.role,
                 password_hash=row.password_hash,
             )
+
+    # -- trail ---------------------------------------------------------------
+
+    async def clear_user_trail(self, *, user_id: str, scenic_id: str) -> int:
+        from sqlalchemy import delete
+
+        async with self._sessions() as session:
+            stmt = delete(m.UserTrail).where(
+                m.UserTrail.user_id == user_id,
+                m.UserTrail.scenic_id == scenic_id,
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            rowcount = getattr(result, "rowcount", 0) or 0
+            return int(rowcount)
 
     # -- audit ---------------------------------------------------------------
 

@@ -44,6 +44,7 @@ class InMemoryRepository:
         self._seed: SeedData | None = None
         self._sessions: dict[str, SessionDTO] = {}
         self._documents: dict[str, DocumentDTO] = {}
+        self._document_created_at: dict[str, datetime] = {}
         self._personas: dict[str, PersonaDTO] = {}
         self._persona_prompts: dict[str, str] = {}
         self._experiments: dict[str, PromptExperimentDTO] = {}
@@ -148,17 +149,43 @@ class InMemoryRepository:
             status=DocumentStatus.queued,
         )
         self._documents[document.id] = document
+        self._document_created_at[document.id] = datetime.now(UTC)
         return document
 
     async def document_progress(self, document_id: str) -> IndexProgressDTO:
         document = self._documents.get(document_id)
         if document is None:
             raise AppError(ErrorCode.not_found, "Document was not found.", status_code=404)
+        created = self._document_created_at.get(document_id, datetime.now(UTC))
+        elapsed = (datetime.now(UTC) - created).total_seconds()
+        if elapsed < 30:
+            status = DocumentStatus.queued
+            percent = min(30, 10 + int(elapsed * 2 / 3))
+            message = "Queued for arq indexing worker."
+        elif elapsed < 90:
+            status = DocumentStatus.indexing
+            percent = 30 + int((elapsed - 30) * 1)
+            percent = min(percent, 90)
+            message = "Indexing in progress."
+        else:
+            status = DocumentStatus.ready
+            percent = 100
+            message = "Indexing complete."
+        # Persist the latest status so subsequent calls see the progression.
+        self._documents[document_id] = DocumentDTO(
+            id=document.id,
+            scenic_id=document.scenic_id,
+            title=document.title,
+            source_uri=document.source_uri,
+            version=document.version,
+            status=status,
+            indexed_at=datetime.now(UTC) if status == DocumentStatus.ready else None,
+        )
         return IndexProgressDTO(
             document_id=document_id,
-            status=document.status,
-            percent=10 if document.status == DocumentStatus.queued else 100,
-            message="Queued for arq indexing worker.",
+            status=status,
+            percent=percent,
+            message=message,
         )
 
     async def upsert_persona(
@@ -178,6 +205,7 @@ class InMemoryRepository:
             name=name,
             voice_id=voice_id,
             avatar_id=avatar_id,
+            system_prompt=system_prompt,
             version=version,
             status=status,
         )
@@ -256,6 +284,14 @@ class InMemoryRepository:
         )
         self._admins_by_email[record.email] = record
         return record
+
+    # -- trail ---------------------------------------------------------------
+
+    async def clear_user_trail(self, *, user_id: str, scenic_id: str) -> int:
+        # InMemory backend has no trail storage yet; return 0 for a clean noop
+        # — the SQL backend applies the actual delete.
+        _ = (user_id, scenic_id)
+        return 0
 
     # -- audit ---------------------------------------------------------------
 

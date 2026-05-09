@@ -66,6 +66,13 @@ async def fuse_location(payload: FuseLocationRequest) -> BaseResponse[LocationRe
     return BaseResponse(data=result, trace_id=current_trace_id())
 
 
-@router.delete("/trail", response_model=BaseResponse[dict[str, bool]])
-async def clear_trail(payload: ClearTrailRequest) -> BaseResponse[dict[str, bool]]:
-    return BaseResponse(data={"cleared": True}, trace_id=current_trace_id())
+@router.delete("/trail", response_model=BaseResponse[dict[str, int]])
+async def clear_trail(
+    payload: ClearTrailRequest,
+    repository: RepositoryDep,
+) -> BaseResponse[dict[str, int]]:
+    cleared = await repository.clear_user_trail(
+        user_id=payload.user_id,
+        scenic_id=payload.scenic_id,
+    )
+    return BaseResponse(data={"cleared_count": cleared}, trace_id=current_trace_id())

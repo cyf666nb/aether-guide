@@ -29,6 +29,6 @@ async def emergency_points(
     scenic_id: str,
     repository: RepositoryDep,
 ) -> BaseResponse[list[EmergencyPointDTO]]:
-    response = await LostTouristService(repository).handle_lost(scenic_id)
-    return BaseResponse(data=response.nearest_points, trace_id=current_trace_id())
+    points = await LostTouristService(repository).find_emergency_points(scenic_id)
+    return BaseResponse(data=points, trace_id=current_trace_id())
 
