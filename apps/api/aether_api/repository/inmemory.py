@@ -34,12 +34,15 @@ class SeedData:
 
 
 class InMemoryRepository:
+    """In-process repository used for demos and for tests that need no DB."""
+
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._seed: SeedData | None = None
         self._sessions: dict[str, SessionDTO] = {}
         self._documents: dict[str, DocumentDTO] = {}
         self._personas: dict[str, PersonaDTO] = {}
+        self._persona_prompts: dict[str, str] = {}
         self._experiments: dict[str, PromptExperimentDTO] = {}
         self._feedback: dict[str, FeedbackDTO] = {}
 
@@ -160,6 +163,7 @@ class InMemoryRepository:
         name: str,
         voice_id: str,
         avatar_id: str,
+        system_prompt: str,
         version: str,
         status: str,
     ) -> PersonaDTO:
@@ -173,12 +177,15 @@ class InMemoryRepository:
             status=status,
         )
         self._personas[persona.id] = persona
+        self._persona_prompts[persona.id] = system_prompt
         return persona
 
     async def create_prompt_experiment(
         self,
         *,
         name: str,
+        variant_a: str,
+        variant_b: str,
         traffic_split: float,
         metric: str,
     ) -> PromptExperimentDTO:

@@ -46,3 +46,27 @@ def test_alembic_upgrade_head_creates_expected_tables(alembic_sqlite_url: str) -
         f"Missing tables after upgrade: {expected - created}"
     )
     assert "alembic_version" in created
+
+
+@pytest.mark.asyncio
+async def test_lifespan_selects_inmemory() -> None:
+    # Regression guard for Issue #2 — factory returns in-memory backend.
+    from aether_api.config import Settings
+    from aether_api.repository import create_repository
+    from aether_api.repository.inmemory import InMemoryRepository
+
+    settings = Settings(storage_mode="inmemory")
+    repo = await create_repository(settings)
+    assert isinstance(repo, InMemoryRepository)
+
+
+@pytest.mark.asyncio
+async def test_lifespan_database_mode_not_yet_wired() -> None:
+    # Regression guard for Issue #2 — database path is declared but Task 4 owns impl.
+    from aether_api.config import Settings
+    from aether_api.repository import create_repository
+
+    settings = Settings(storage_mode="database")
+    with pytest.raises(NotImplementedError) as exc_info:
+        await create_repository(settings)
+    assert "Task 4" in str(exc_info.value)

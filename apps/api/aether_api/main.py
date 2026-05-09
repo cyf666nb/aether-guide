@@ -12,7 +12,7 @@ from aether_api.errors import register_exception_handlers
 from aether_api.middleware.audit import AuditMiddleware
 from aether_api.middleware.rate_limit import InMemoryRateLimitMiddleware
 from aether_api.middleware.trace import TraceMiddleware
-from aether_api.repository import InMemoryRepository
+from aether_api.repository import create_repository
 from aether_api.routers import admin, location, offline, recommendations, safety, tourist
 from aether_api.services.ai.client import AIClient
 
@@ -20,8 +20,7 @@ from aether_api.services.ai.client import AIClient
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-    repository = InMemoryRepository(settings)
-    await repository.load_seed()
+    repository = await create_repository(settings)
     app.state.settings = settings
     app.state.repository = repository
     app.state.ai_client = AIClient(settings)

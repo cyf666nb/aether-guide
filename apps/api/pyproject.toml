@@ -37,6 +37,10 @@ ai = [
 [tool.hatch.build.targets.wheel]
 packages = ["aether_api"]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

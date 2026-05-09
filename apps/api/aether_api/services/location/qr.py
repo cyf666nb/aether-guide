@@ -1,10 +1,10 @@
 # SCORE-IMPACT: Fraud-resistant QR/NFC anchor flow.
-from aether_api.repository import InMemoryRepository
+from aether_api.repository import Repository
 from aether_api.schemas.location import LocationResult
 
 
 class QRAnchorService:
-    def __init__(self, repository: InMemoryRepository) -> None:
+    def __init__(self, repository: Repository) -> None:
         self._repository = repository
 
     async def locate(self, scenic_id: str, poi_id: str, token: str) -> LocationResult:

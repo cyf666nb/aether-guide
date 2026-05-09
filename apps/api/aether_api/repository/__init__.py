@@ -1,0 +1,123 @@
+# SCORE-IMPACT: Clean storage abstraction for swappable inmemory/SQL backends.
+"""Repository Protocol and factory.
+
+Two implementations satisfy the same interface:
+- InMemoryRepository: demo path, zero-dep, loaded from seed JSON at startup.
+- SqlRepository: production path, backed by SQLAlchemy async.
+
+The active implementation is chosen by settings.storage_mode.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Protocol
+
+from aether_api.config import Settings
+from aether_api.schemas.admin import (
+    DashboardOverviewDTO,
+    DocumentDTO,
+    IndexProgressDTO,
+    PersonaDTO,
+    PromptExperimentDTO,
+    SessionReplayDTO,
+    TurnLabelDTO,
+)
+from aether_api.schemas.feedback import FeedbackDTO, FeedbackRequest
+from aether_api.schemas.landmarks import LandmarkDTO
+from aether_api.schemas.sessions import SessionDTO
+
+
+class Repository(Protocol):
+    """Storage-agnostic interface. Both backends must implement every method."""
+
+    async def load_seed(self) -> None:
+        """Populate the repository from the seed JSON / tables on startup."""
+        ...
+
+    async def create_session(
+        self,
+        *,
+        scenic_id: str,
+        user_id: str | None,
+        persona_id: str | None,
+    ) -> SessionDTO: ...
+
+    async def get_session(self, session_id: str) -> SessionDTO: ...
+
+    async def list_landmarks(self, scenic_id: str) -> list[LandmarkDTO]: ...
+
+    async def nearest_emergency_points(self, scenic_id: str) -> list[LandmarkDTO]: ...
+
+    async def save_feedback(self, request: FeedbackRequest) -> FeedbackDTO: ...
+
+    async def create_document(
+        self,
+        *,
+        scenic_id: str,
+        title: str,
+        source_uri: str,
+        version: str,
+    ) -> DocumentDTO: ...
+
+    async def document_progress(self, document_id: str) -> IndexProgressDTO: ...
+
+    async def upsert_persona(
+        self,
+        *,
+        scenic_id: str,
+        name: str,
+        voice_id: str,
+        avatar_id: str,
+        system_prompt: str,
+        version: str,
+        status: str,
+    ) -> PersonaDTO: ...
+
+    async def create_prompt_experiment(
+        self,
+        *,
+        name: str,
+        variant_a: str,
+        variant_b: str,
+        traffic_split: float,
+        metric: str,
+    ) -> PromptExperimentDTO: ...
+
+    async def dashboard_overview(self) -> DashboardOverviewDTO: ...
+
+    async def session_replay(self, session_id: str) -> SessionReplayDTO: ...
+
+    async def label_turn(self, turn_id: str) -> TurnLabelDTO: ...
+
+    async def seed_path(self) -> Path: ...
+
+
+async def create_repository(settings: Settings) -> Repository:
+    """Factory: pick the backend implementation by settings.storage_mode.
+
+    - inmemory: instantiate InMemoryRepository, load seed, return.
+    - database: instantiate SqlRepository (Task 4); raises NotImplementedError
+      until Task 4 provides it.
+    """
+    if settings.storage_mode == "inmemory":
+        from aether_api.repository.inmemory import InMemoryRepository
+
+        repo: Repository = InMemoryRepository(settings)
+        await repo.load_seed()
+        return repo
+
+    if settings.storage_mode == "database":
+        # Deferred import so the demo path does not require SQLAlchemy session
+        # plumbing to be loaded.
+        from aether_api.repository.sql import SqlRepository  # noqa: F401
+
+        raise NotImplementedError(
+            "storage_mode=database is wired in Task 4. "
+            "Set AETHER_STORAGE_MODE=inmemory for the demo path."
+        )
+
+    raise ValueError(f"Unknown storage_mode: {settings.storage_mode}")
+
+
+__all__ = ["Repository", "create_repository"]

@@ -1,10 +1,10 @@
 # SCORE-IMPACT: GPS-free wayfinding and lost-tourist recovery.
-from aether_api.repository import InMemoryRepository
+from aether_api.repository import Repository
 from aether_api.schemas.location import LocationResult
 
 
 class ConversationalLocator:
-    def __init__(self, repository: InMemoryRepository) -> None:
+    def __init__(self, repository: Repository) -> None:
         self._repository = repository
 
     async def locate(self, scenic_id: str, description: str) -> LocationResult:

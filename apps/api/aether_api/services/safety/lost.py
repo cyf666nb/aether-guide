@@ -1,10 +1,10 @@
 # SCORE-IMPACT: Safety workflow and emergency-point response.
-from aether_api.repository import InMemoryRepository
+from aether_api.repository import Repository
 from aether_api.schemas.safety import EmergencyPointDTO, LostResponseDTO
 
 
 class LostTouristService:
-    def __init__(self, repository: InMemoryRepository) -> None:
+    def __init__(self, repository: Repository) -> None:
         self._repository = repository
 
     async def handle_lost(self, scenic_id: str) -> LostResponseDTO:

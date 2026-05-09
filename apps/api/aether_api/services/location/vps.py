@@ -1,11 +1,11 @@
 # SCORE-IMPACT: Photo-based VPS demo path with graceful confidence handling.
-from aether_api.repository import InMemoryRepository
+from aether_api.repository import Repository
 from aether_api.schemas.common import GeoPoint
 from aether_api.schemas.location import LocationResult
 
 
 class VisualPositioningService:
-    def __init__(self, repository: InMemoryRepository) -> None:
+    def __init__(self, repository: Repository) -> None:
         self._repository = repository
 
     async def locate_by_photo(

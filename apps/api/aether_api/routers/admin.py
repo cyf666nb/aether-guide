@@ -54,6 +54,7 @@ async def upsert_persona(
         name=payload.name,
         voice_id=payload.voice_id,
         avatar_id=payload.avatar_id,
+        system_prompt=payload.system_prompt,
         version=payload.version,
         status=payload.status,
     )
@@ -67,6 +68,8 @@ async def create_prompt_experiment(
 ) -> BaseResponse[PromptExperimentDTO]:
     experiment = await repository.create_prompt_experiment(
         name=payload.name,
+        variant_a=payload.variant_a,
+        variant_b=payload.variant_b,
         traffic_split=payload.traffic_split,
         metric=payload.metric,
     )

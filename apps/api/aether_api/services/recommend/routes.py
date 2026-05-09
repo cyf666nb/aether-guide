@@ -1,10 +1,10 @@
 # SCORE-IMPACT: Personalized route planning demo loop.
-from aether_api.repository import InMemoryRepository
+from aether_api.repository import Repository
 from aether_api.schemas.recommendations import RouteRecommendationDTO, RouteStopDTO
 
 
 class RoutePlanner:
-    def __init__(self, repository: InMemoryRepository) -> None:
+    def __init__(self, repository: Repository) -> None:
         self._repository = repository
 
     async def recommend(self, scenic_id: str) -> RouteRecommendationDTO:
