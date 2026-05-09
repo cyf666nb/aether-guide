@@ -97,8 +97,8 @@ async def create_repository(settings: Settings) -> Repository:
     """Factory: pick the backend implementation by settings.storage_mode.
 
     - inmemory: instantiate InMemoryRepository, load seed, return.
-    - database: instantiate SqlRepository (Task 4); raises NotImplementedError
-      until Task 4 provides it.
+    - database: build async engine + session factory, instantiate SqlRepository,
+      idempotently seed, and return.
     """
     if settings.storage_mode == "inmemory":
         from aether_api.repository.inmemory import InMemoryRepository
@@ -108,14 +108,11 @@ async def create_repository(settings: Settings) -> Repository:
         return repo
 
     if settings.storage_mode == "database":
-        # Deferred import so the demo path does not require SQLAlchemy session
-        # plumbing to be loaded.
-        from aether_api.repository.sql import SqlRepository  # noqa: F401
+        from aether_api.repository.sql import make_sql_repository
 
-        raise NotImplementedError(
-            "storage_mode=database is wired in Task 4. "
-            "Set AETHER_STORAGE_MODE=inmemory for the demo path."
-        )
+        sql_repo = make_sql_repository(settings)
+        await sql_repo.load_seed()
+        return sql_repo
 
     raise ValueError(f"Unknown storage_mode: {settings.storage_mode}")
 

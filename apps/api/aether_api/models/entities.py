@@ -62,6 +62,7 @@ class Landmark(TimestampMixin, Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     scenic_id: Mapped[str] = mapped_column(ForeignKey("scenic_areas.id"), index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
     lat: Mapped[float] = mapped_column(Float, nullable=False)
     lng: Mapped[float] = mapped_column(Float, nullable=False)
     opening_hours: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
@@ -143,6 +144,7 @@ class Admin(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(240), unique=True, nullable=False)
     role: Mapped[str] = mapped_column(String(40), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False, default="")
 
 
 class AuditLog(TimestampMixin, Base):

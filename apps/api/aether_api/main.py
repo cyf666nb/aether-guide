@@ -24,7 +24,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.settings = settings
     app.state.repository = repository
     app.state.ai_client = AIClient(settings)
-    yield
+    try:
+        yield
+    finally:
+        aclose = getattr(repository, "aclose", None)
+        if callable(aclose):
+            await aclose()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

@@ -61,12 +61,35 @@ async def test_lifespan_selects_inmemory() -> None:
 
 
 @pytest.mark.asyncio
-async def test_lifespan_database_mode_not_yet_wired() -> None:
-    # Regression guard for Issue #2 — database path is declared but Task 4 owns impl.
+async def test_storage_mode_database_end_to_end(tmp_path: Path) -> None:
+    # Regression guard for Issue #2 — database backend works end-to-end.
     from aether_api.config import Settings
     from aether_api.repository import create_repository
+    from aether_api.repository.sql import SqlRepository
 
-    settings = Settings(storage_mode="database")
-    with pytest.raises(NotImplementedError) as exc_info:
-        await create_repository(settings)
-    assert "Task 4" in str(exc_info.value)
+    db_path = tmp_path / "e2e.db"
+    settings = Settings(
+        storage_mode="database",
+        database_url=f"sqlite+aiosqlite:///{db_path}",
+    )
+
+    # Apply migrations to the tmp DB first.
+    sync_url = f"sqlite:///{db_path}"
+    cfg = _make_alembic_config(sync_url)
+    command.upgrade(cfg, "head")
+
+    repo = await create_repository(settings)
+    try:
+        assert isinstance(repo, SqlRepository)
+        landmarks = await repo.list_landmarks("demo-scenic")
+        assert len(landmarks) >= 3
+        session = await repo.create_session(
+            scenic_id="demo-scenic", user_id="visitor-1", persona_id=None
+        )
+        assert session.scenic_id == "demo-scenic"
+        roundtrip = await repo.get_session(session.id)
+        assert roundtrip.id == session.id
+    finally:
+        aclose = getattr(repo, "aclose", None)
+        if callable(aclose):
+            await aclose()
