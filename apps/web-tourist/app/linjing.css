@@ -332,10 +332,197 @@
 }
 
 @media (min-width: 860px) {
-  .tourist-frame {
-    max-width: 460px;
-    margin: 0 auto;
-    box-shadow: 0 0 0 1px rgba(236, 233, 226, 0.08);
+  .tourist-home {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(460px, 58vw) minmax(360px, 1fr);
+    grid-template-rows: 24px 64px minmax(0, 1fr);
+    height: 100vh;
+    min-height: 100vh;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 78% 18%, rgba(136, 163, 125, 0.12), transparent 30%),
+      var(--stone-void);
+  }
+
+  .tourist-home .trust-bar {
+    position: relative;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-content: flex-start;
+    top: auto;
+    padding: 4px 40px;
+    background: rgba(11, 14, 16, 0.92);
+  }
+
+  .tourist-home .visitor-nav {
+    position: relative;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    top: auto;
+    height: 64px;
+    padding: 0 40px;
+    border-bottom: 1px solid rgba(236, 233, 226, 0.08);
+    background: rgba(11, 14, 16, 0.72);
+    backdrop-filter: blur(14px);
+  }
+
+  .tourist-home .nav-links {
+    gap: 10px;
+  }
+
+  .tourist-home .hero-stage {
+    grid-column: 1;
+    grid-row: 3;
+    height: auto;
+    min-height: 0;
+    border-right: 1px solid rgba(236, 233, 226, 0.1);
+  }
+
+  .tourist-home .hero-stage::after {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent 55%, rgba(11, 14, 16, 0.34));
+    content: "";
+  }
+
+  .tourist-home .hero-stage > img {
+    opacity: 0.78;
+    transform: scale(1.01);
+  }
+
+  .tourist-home .scene-mask {
+    height: 62%;
+    background: linear-gradient(0deg, rgba(11, 14, 16, 0.94), transparent);
+  }
+
+  .tourist-home .guide-presence {
+    right: clamp(48px, 9vw, 132px);
+    bottom: clamp(96px, 19vh, 220px);
+    width: clamp(160px, 16vw, 260px);
+  }
+
+  .tourist-home .current-spot {
+    right: clamp(36px, 6vw, 96px);
+    bottom: clamp(36px, 6vh, 72px);
+    left: clamp(36px, 6vw, 96px);
+    padding: 18px 22px;
+  }
+
+  .tourist-home .current-spot strong {
+    font-size: clamp(28px, 3vw, 44px);
+  }
+
+  .tourist-home .conversation {
+    grid-column: 2;
+    grid-row: 3;
+    align-content: start;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 34px 40px 138px;
+    background:
+      linear-gradient(180deg, rgba(28, 34, 38, 0.34), rgba(11, 14, 16, 0.96)),
+      var(--stone-void);
+  }
+
+  .tourist-home .message-row {
+    max-width: min(680px, 92%);
+  }
+
+  .tourist-home .message-row.user {
+    max-width: min(620px, 82%);
+  }
+
+  .tourist-home .message-bubble {
+    padding: 16px 18px;
+    line-height: 1.65;
+  }
+
+  .tourist-home .composer-dock {
+    position: relative;
+    z-index: 30;
+    grid-column: 2;
+    grid-row: 3;
+    align-self: end;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: auto;
+    margin: 0 32px 26px;
+    padding: 18px 18px 20px;
+    border: 1px solid rgba(236, 233, 226, 0.14);
+    border-radius: var(--radius-md);
+    background: rgba(19, 23, 25, 0.92);
+    box-shadow: var(--shadow-elev);
+    backdrop-filter: blur(18px);
+  }
+
+  .tourist-home .voice-field {
+    min-height: 58px;
+  }
+
+  .route-page {
+    padding: 0 0 56px;
+  }
+
+  .route-page > .trust-bar,
+  .route-page > .visitor-nav {
+    margin: 0;
+  }
+
+  .route-intro,
+  .timeline,
+  .route-page > .primary-button {
+    width: min(1120px, calc(100% - 80px));
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .route-page > .primary-button {
+    position: static !important;
+    bottom: auto !important;
+    display: block;
+    max-width: 1120px;
+  }
+
+  .route-intro {
+    margin-top: 48px;
+    margin-bottom: 32px;
+  }
+
+  .route-card {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .route-photo,
+  .route-photo img {
+    min-height: 360px;
+  }
+
+  .photo-page .result-sheet {
+    right: 44px;
+    bottom: 44px;
+    left: auto;
+    width: min(430px, calc(100% - 88px));
+  }
+
+  .photo-page .viewfinder {
+    inset: 104px 460px 80px 52px;
+  }
+
+  .photo-page .viewfinder svg {
+    width: min(42vw, 520px);
   }
 }
 
+@media (min-width: 1280px) {
+  .tourist-home {
+    grid-template-columns: minmax(620px, 62vw) minmax(430px, 1fr);
+  }
+
+  .tourist-home .conversation {
+    padding-right: 48px;
+    padding-left: 48px;
+  }
+}

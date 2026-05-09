@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./linjing.css";
-import { Providers } from "./providers";
+import { Providers } from "@aether/design-system";
 
 export const metadata: Metadata = {
   title: "临境 · 知行导览",

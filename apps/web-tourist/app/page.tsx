@@ -13,15 +13,21 @@ type ChatMessage = {
   role: "user" | "guide";
 };
 
+let nextMessageId = 0;
+
+function withId(m: ChatMessage): ChatMessage & { _id: number } {
+  return { ...m, _id: nextMessageId++ };
+}
+
 export default function TouristHome() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState("你好，给我介绍一下附近最值得先看的景点。");
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
+  const [messages, setMessages] = useState<(ChatMessage & { _id: number })[]>([
+    withId({
       speaker: "知行",
       text: "我会根据你所在的位置，把讲解、路线和安全提醒串成一段顺路的旅程。",
       role: "guide"
-    }
+    })
   ]);
   const socketRef = useRef<WebSocket | null>(null);
   const { data: landmarks = [] } = useQuery({
@@ -38,15 +44,24 @@ export default function TouristHome() {
         const socket = new WebSocket(wsUrl(session.id));
         socketRef.current = socket;
         socket.addEventListener("message", (event) => {
-          const payload = JSON.parse(event.data) as { data: { content: string } };
-          setMessages((current) => [
-            ...current,
-            { speaker: "知行", text: payload.data.content.replace(/\[\^seed:intro]/g, ""), role: "guide" }
-          ]);
+          try {
+            const payload = JSON.parse(event.data) as { data: { content: string } | null };
+            if (!payload.data) return;
+            const text = payload.data.content.replace(/\[\^seed:intro]/g, "");
+            setMessages((current) => [
+              ...current,
+              withId({ speaker: "知行", text, role: "guide" })
+            ]);
+          } catch {
+            // Malformed message from server — ignore
+          }
+        });
+        socket.addEventListener("error", () => {
+          // Connection issue — offline fallback in send() handles it
         });
       })
-      .catch(() => {
-        // Backend unavailable — demo data and offline mode already work via fallback
+      .catch((err: unknown) => {
+        console.warn("Session creation failed, running in offline demo mode:", err);
       });
     return () => {
       mounted = false;
@@ -57,13 +72,13 @@ export default function TouristHome() {
   function send() {
     const text = input.trim();
     if (!text) return;
-    setMessages((current) => [...current, { speaker: "你", text, role: "user" }]);
+    setMessages((current) => [...current, withId({ speaker: "你", text, role: "user" })]);
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: "user_text", text, locale: "zh-CN" }));
     } else {
       setMessages((current) => [
         ...current,
-        { speaker: "知行", text: "当前使用本地知识库演示模式。我先带你从月门听泉走到松台远眺。", role: "guide" }
+        withId({ speaker: "知行", text: "当前使用本地知识库演示模式。我先带你从月门听泉走到松台远眺。", role: "guide" })
       ]);
     }
     setInput("");
@@ -72,7 +87,7 @@ export default function TouristHome() {
   const spot = landmarks[0]?.name ?? "月门听泉";
 
   return (
-    <main className="tourist-frame">
+    <main className="tourist-frame tourist-home">
       <TrustBar mode={sessionId ? "online" : "offline"} />
       <VisitorNav />
       <section className="hero-stage">
@@ -92,8 +107,8 @@ export default function TouristHome() {
         </div>
       </section>
       <section className="conversation" aria-live="polite">
-        {messages.map((message, index) => (
-          <article className={`message-row ${message.role === "user" ? "user" : ""}`} key={index}>
+        {messages.map((message) => (
+          <article className={`message-row ${message.role === "user" ? "user" : ""}`} key={message._id}>
             <p className="caption">{message.speaker}</p>
             <div className="message-bubble">
               {message.role === "guide" ? <TextStream text={message.text} /> : message.text}
@@ -126,4 +141,3 @@ export default function TouristHome() {
     </main>
   );
 }
-

@@ -16,12 +16,12 @@ export default function DashboardPage() {
       <section className="dashboard-grid">
         <article className="metric-tile span-5">
           <p className="caption">服务游客</p>
-          <p className="big-number">{dashboard?.active_sessions.toLocaleString() ?? dashboardMetrics.visitors}</p>
+          <p className="big-number">{dashboard?.active_sessions != null ? dashboard.active_sessions.toLocaleString() : dashboardMetrics.visitors}</p>
           <p className="trend">↑ 12% 昨日</p>
         </article>
         <article className="metric-tile span-4">
           <p className="caption">平均满意度</p>
-          <p className="big-number">{dashboard?.nps.toFixed(1) ?? dashboardMetrics.satisfaction}</p>
+          <p className="big-number">{dashboard?.nps != null ? dashboard.nps.toFixed(1) : dashboardMetrics.satisfaction}</p>
           <p className="trend">↑ 0.2 / 5</p>
         </article>
         <article className="metric-tile span-3">
@@ -53,14 +53,14 @@ export default function DashboardPage() {
         <article className="metric-tile span-4">
           <p className="caption">Token 成本</p>
           <p className="big-number" style={{ fontSize: 72 }}>
-            ${dashboard?.token_cost_usd_today.toFixed(1) ?? "12.4"}
+            ${dashboard?.token_cost_usd_today != null ? dashboard.token_cost_usd_today.toFixed(1) : "12.4"}
           </p>
           <p className="type-body">今日服务成本，对比真人导游约 ¥800。</p>
         </article>
         <article className="metric-tile span-4">
           <p className="caption">语义缓存</p>
           <p className="big-number" style={{ fontSize: 72 }}>
-            {Math.round((dashboard?.cache_hit_rate ?? 0.78) * 100)}%
+            {dashboard?.cache_hit_rate != null ? Math.round(dashboard.cache_hit_rate * 100) : 78}%
           </p>
           <p className="trend">二次相似问题首响更快</p>
         </article>

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./zhaji.css";
 import { AtmosphereInit } from "./components/AtmosphereInit";
-import { Providers } from "./providers";
+import { Providers } from "@aether/design-system";
 
 export const metadata: Metadata = {
   title: "札记 · 知行管理台",

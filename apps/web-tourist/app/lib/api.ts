@@ -2,7 +2,7 @@ import { fallbackLandmarks } from "@aether/design-system/demo-data";
 
 function getApiBase(): string {
   if (process.env.NEXT_PUBLIC_API_BASE) return process.env.NEXT_PUBLIC_API_BASE;
-  if (typeof window !== "undefined") return `${window.location.protocol}//${window.location.hostname}:8000`;
+  if (typeof window === "object") return `${window.location.protocol}//${window.location.hostname}:8000`;
   return "http://127.0.0.1:8000";
 }
 
@@ -104,4 +104,3 @@ export function wsUrl(sessionId: string) {
   base.pathname = `/api/v1/sessions/${sessionId}/stream`;
   return base.toString();
 }
-

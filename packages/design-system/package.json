@@ -11,7 +11,8 @@
     "./demo-data": "./src/demo-data.ts"
   },
   "dependencies": {
-    "react": "^19.2.1"
+    "react": "^19.2.1",
+    "@tanstack/react-query": "^5.90.11"
   }
 }
 
