@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -323,3 +324,95 @@ async def test_redis_rate_limit_enforced_and_isolated_by_user(
         assert blocked.status_code == 429
         assert blocked.headers.get("X-RateLimit-Remaining") == "0"
         assert int(blocked.headers.get("X-RateLimit-Limit") or 0) == 3
+
+
+# ---------- Task 10: hardening ------------------------------------------
+
+
+def test_image_base64_too_large_rejected() -> None:
+    """validate_image_base64 rejects payloads above the 1 MB limit."""
+    import base64
+
+    from aether_api.errors import AppError
+    from aether_api.services.common.image import validate_image_base64
+
+    huge = base64.b64encode(b"\x00" * (1_200_000)).decode("ascii")
+    with pytest.raises(AppError) as exc_info:
+        validate_image_base64(huge)
+    assert exc_info.value.status_code == 400
+
+
+def test_trace_middleware_sanitizes_hostile_header() -> None:
+    """A malicious X-Trace-Id is dropped; response carries a fresh one."""
+    from aether_api.main import app
+    from fastapi.testclient import TestClient
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/healthz", headers={"X-Trace-Id": "<script>alert(1)</script>"}
+        )
+    trace = response.headers.get("X-Trace-Id", "")
+    assert "<" not in trace
+    assert "script" not in trace
+    assert len(trace) >= 8
+
+
+@pytest.mark.asyncio
+async def test_ai_client_production_timeout_raises_503(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Timeouts in production mode raise 503 — no silent fake fallback."""
+    from aether_api.config import Settings
+    from aether_api.errors import AppError
+    from aether_api.services.ai import client as ai_module
+
+    settings = Settings(
+        environment="production",
+        ai_provider="litellm",
+        jwt_secret="prod-secret-not-default-value-long-enough",  # type: ignore[arg-type]
+        cors_origins=["https://prod.example"],
+    )
+
+    async def slow_answer(*_args: object, **_kwargs: object) -> object:
+        await asyncio.sleep(5)  # exceeds default llm_timeout_seconds
+
+    monkeypatch.setattr(ai_module.AIClient, "_litellm_answer", slow_answer)
+
+    ai_client = ai_module.AIClient(settings)
+    ai_client._settings.llm_timeout_seconds = 0.1  # force quick timeout  # type: ignore[misc]
+    with pytest.raises(AppError) as exc_info:
+        await ai_client.generate_reply(
+            ai_module.AIRequest(
+                session_id="s", scenic_id="demo-scenic", prompt="hi", locale="zh-CN"
+            )
+        )
+    assert exc_info.value.status_code == 503
+
+
+def test_readyz_reports_redis_outage(monkeypatch: pytest.MonkeyPatch) -> None:
+    """readyz returns 503 with checks.redis=error when Redis is unreachable."""
+    from aether_api.main import app
+    from fastapi.testclient import TestClient
+    from redis.exceptions import ConnectionError as RedisConnectionError
+
+    class _BrokenRedis:
+        async def ping(self) -> None:
+            raise RedisConnectionError("simulated outage")
+
+        async def close(self) -> None:
+            return None
+
+    def broken_from_url(*_args: object, **_kwargs: object) -> object:
+        return _BrokenRedis()
+
+    monkeypatch.setattr(
+        "redis.asyncio.from_url",
+        broken_from_url,
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/readyz")
+    assert response.status_code == 503
+    data = response.json()
+    assert data["status"] == "degraded"
+    assert "error" in data["checks"]["redis"]

@@ -110,8 +110,58 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/readyz", tags=["system"])
-    async def readyz() -> dict[str, str]:
-        return {"status": "ready"}
+    async def readyz() -> Response:
+        import json as _json
+
+        import redis.asyncio as redis_asyncio
+
+        checks: dict[str, str] = {}
+        overall_ok = True
+
+        # DB / repository check.
+        repo = app.state.repository
+        try:
+            sql_sessions = getattr(repo, "_sessions", None)
+            if sql_sessions is not None:
+                from sqlalchemy import text as _text
+
+                async with sql_sessions() as session:
+                    await session.execute(_text("SELECT 1"))
+                checks["db"] = "ok"
+            else:
+                # In-memory: seed presence is the best proxy for readiness.
+                seed_ok = bool(getattr(repo, "_seed", None))
+                checks["db"] = "ok" if seed_ok else "degraded"
+                overall_ok = overall_ok and seed_ok
+        except Exception as exc:  # noqa: BLE001 - readyz is a diagnostic endpoint
+            checks["db"] = f"error: {exc}"
+            overall_ok = False
+
+        # Redis check (optional — if configured).
+        if app.state.settings.redis_url:
+            try:
+                client = redis_asyncio.from_url(  # type: ignore[no-untyped-call]
+                    app.state.settings.redis_url,
+                    encoding="utf-8",
+                    decode_responses=True,
+                )
+                try:
+                    await client.ping()
+                    checks["redis"] = "ok"
+                finally:
+                    await client.close()
+            except Exception as exc:  # noqa: BLE001 - readyz is a diagnostic endpoint
+                checks["redis"] = f"error: {exc}"
+                overall_ok = False
+
+        body = _json.dumps(
+            {"status": "ready" if overall_ok else "degraded", "checks": checks}
+        )
+        return Response(
+            content=body,
+            media_type="application/json",
+            status_code=200 if overall_ok else 503,
+        )
 
     return app
 

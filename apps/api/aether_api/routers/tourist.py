@@ -15,6 +15,7 @@ from aether_api.schemas.sessions import (
     StreamMessage,
 )
 from aether_api.services.ai.client import AIRequest
+from aether_api.services.common.image import validate_image_base64
 from aether_api.services.location.vps import VisualPositioningService
 from aether_api.tracing import current_trace_id, new_trace_id, set_trace_id
 
@@ -49,6 +50,7 @@ async def identify_photo(
     payload: PhotoSceneRequest,
     repository: RepositoryDep,
 ) -> BaseResponse[PhotoSceneResponse]:
+    validate_image_base64(payload.image_base64)
     await repository.get_session(session_id)
     service = VisualPositioningService(repository)
     result = await service.locate_by_photo(

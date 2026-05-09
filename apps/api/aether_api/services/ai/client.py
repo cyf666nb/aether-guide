@@ -4,6 +4,9 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from time import monotonic
+from typing import Any
+
+import httpx
 
 from aether_api.config import Settings
 from aether_api.errors import AppError, ErrorCode
@@ -77,7 +80,8 @@ class AIClient:
         except AppError:
             self._breaker.record_failure()
             raise
-        except Exception as exc:
+        except (TimeoutError, httpx.HTTPError, OSError) as exc:
+            # Known transient failure modes — narrow list instead of bare except.
             self._breaker.record_failure()
             if self._settings.environment == "production":
                 raise AppError(
@@ -114,10 +118,11 @@ class AIClient:
         )
         self._breaker.record_success()
         content = str(response.choices[0].message.content)
+        cost_usd = _extract_cost(response)
         return AIResponse(
             content=content,
             citations=["llm:litellm"],
-            cost_usd=0.0,
+            cost_usd=cost_usd,
             cache_hit=False,
             latency_ms=int((monotonic() - start) * 1000),
         )
@@ -131,3 +136,13 @@ class AIClient:
             f"导览回声：{trimmed}。"
             "我已串联 Trace、统一响应和假 LLM，后续可替换为真实 RAG。[^seed:intro]"
         )
+
+
+def _extract_cost(response: Any) -> float:
+    """Read ``response._hidden_params['response_cost']`` if present; else 0."""
+    hidden = getattr(response, "_hidden_params", {}) or {}
+    raw = hidden.get("response_cost") if isinstance(hidden, dict) else None
+    try:
+        return float(raw) if raw is not None else 0.0
+    except (TypeError, ValueError):
+        return 0.0

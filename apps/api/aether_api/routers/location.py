@@ -12,6 +12,7 @@ from aether_api.schemas.location import (
     QRLocationRequest,
     VisualLocationRequest,
 )
+from aether_api.services.common.image import validate_image_base64
 from aether_api.services.location.conversational import ConversationalLocator
 from aether_api.services.location.fusion import LocationFusion
 from aether_api.services.location.qr import QRAnchorService
@@ -30,6 +31,7 @@ async def locate_visual(
     payload: VisualLocationRequest,
     repository: RepositoryDep,
 ) -> BaseResponse[LocationResult]:
+    validate_image_base64(payload.image_base64)
     result = await VisualPositioningService(repository).locate_by_photo(
         scenic_id=payload.scenic_id,
         image_base64=payload.image_base64,
