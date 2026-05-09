@@ -2,13 +2,16 @@ UV_CACHE_DIR ?= $(CURDIR)/.uv-cache
 UV_PYTHON_INSTALL_DIR ?= $(CURDIR)/.uv-python
 UV := UV_CACHE_DIR=$(UV_CACHE_DIR) UV_PYTHON_INSTALL_DIR=$(UV_PYTHON_INSTALL_DIR) uv
 
-.PHONY: dev demo test eval perf openapi
+.PHONY: dev demo migrate test eval perf openapi
 
 dev:
 	$(UV) run --project apps/api uvicorn aether_api.main:app --host 0.0.0.0 --port 8000 --reload
 
 demo:
 	$(UV) run --project apps/api uvicorn aether_api.main:app --host 0.0.0.0 --port 8000
+
+migrate:
+	cd apps/api && $(UV) run alembic upgrade head
 
 test:
 	$(UV) run --project apps/api ruff check apps/api/aether_api apps/api/tests tests/eval scripts
