@@ -12,6 +12,14 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
   redis:
     image: redis:7-alpine
     ports:
@@ -61,5 +69,6 @@ services:
 
 volumes:
   postgres-data:
+  qdrant-data:
   minio-data:
 

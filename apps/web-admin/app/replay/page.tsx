@@ -20,9 +20,9 @@ export default function ReplayPage() {
         <div className="replay-detail">
           <article className="panel-line" style={{ padding: 18 }}>
             <p className="caption">同步文本</p>
-            <h2 className="type-heading type-heading-3">这座桥为什么叫墨桥？</h2>
+            <h2 className="type-heading type-heading-3">第一次来三坊七巷，先从哪里开始逛？</h2>
             <p className="type-body" style={{ marginTop: 12 }}>
-              系统在 420ms 内检索到 3 个 chunk，并在 2.6s 触发 TTS 首音。
+              系统在 420ms 内检索到南后街、林觉民·冰心故居和严复故居相关 chunk，并在 2.6s 触发 TTS 首音。
             </p>
           </article>
           <article className="panel-line" style={{ padding: 18 }}>
@@ -33,7 +33,7 @@ export default function ReplayPage() {
               </p>
             ))}
             <button className="primary-button" style={{ marginTop: 18 }} type="button">
-              这答错了 · 回流评测集
+              这答错了，回流评测集
             </button>
           </article>
         </div>
@@ -41,4 +41,3 @@ export default function ReplayPage() {
     </AdminShell>
   );
 }
-

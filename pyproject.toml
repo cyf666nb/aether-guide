@@ -39,5 +39,8 @@ module = [
   "fakeredis.*",
   "litellm.*",
   "freezegun.*",
+  "qdrant_client.*",
+  "FlagEmbedding.*",
+  "sentence_transformers.*",
 ]
 ignore_missing_imports = true

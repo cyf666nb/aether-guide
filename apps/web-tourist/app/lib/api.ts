@@ -25,6 +25,8 @@ export type Landmark = {
   name: string;
   summary: string;
   tags: string[];
+  avg_duration_min?: number;
+  geo_point?: { lat: number; lng: number };
 };
 
 export type Session = {
@@ -39,12 +41,26 @@ export type RouteStop = {
   name: string;
   walk_minutes_from_previous: number;
   reason: string;
+  duration_min: number;
+  highlight: string;
 };
 
 export type RoutePlan = {
   scenic_id: string;
   total_walk_minutes: number;
+  total_duration_min: number;
+  intro: string;
   stops: RouteStop[];
+};
+
+export type RoutePreferences = {
+  scenic_id?: string;
+  gender: string;
+  age_range: string;
+  interests: string[];
+  pace: string;
+  group_type: string;
+  duration_minutes: number;
 };
 
 export class ApiError extends Error {
@@ -224,21 +240,29 @@ export async function getLandmarks(scenicId = "demo-scenic") {
   }
 }
 
-export async function getRoute(scenicId = "demo-scenic") {
+export async function getRoute(preferences: RoutePreferences) {
   try {
     return await request<RoutePlan>(
-      `/api/v1/recommendations/route?scenic_id=${encodeURIComponent(scenicId)}`
+      "/api/v1/recommendations/route",
+      {
+        method: "POST",
+        body: JSON.stringify(preferences),
+      },
     );
   } catch {
     return {
-      scenic_id: scenicId,
+      scenic_id: preferences.scenic_id ?? "demo-scenic",
       total_walk_minutes: 16,
+      total_duration_min: 120,
+      intro: "（离线模式）为你推荐的经典路线：",
       stops: fallbackLandmarks.slice(0, 3).map((landmark, index) => ({
         landmark_id: landmark.id,
         name: landmark.name,
         walk_minutes_from_previous: index === 0 ? 0 : 8,
-        reason: landmark.summary
-      }))
+        reason: landmark.summary,
+        duration_min: 20,
+        highlight: "",
+      })),
     };
   }
 }
@@ -248,6 +272,53 @@ export type WsConnectInfo = {
   /** Pass these as the second argument to `new WebSocket(url, protocols)`. */
   protocols: string[];
 };
+
+export type PhotoSceneResult = {
+  status: string;
+  landmark_id: string | null;
+  landmark_name: string | null;
+  confidence: number;
+  narration: string;
+  follow_up: string | null;
+};
+
+export async function identifyPhoto(
+  sessionId: string,
+  imageBase64: string,
+  scenicId = "demo-scenic",
+  gpsHint?: { lat: number; lng: number }
+): Promise<PhotoSceneResult> {
+  return request<PhotoSceneResult>(
+    `/api/v1/sessions/${sessionId}/photo`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        image_base64: imageBase64,
+        scenic_id: scenicId,
+        gps_hint: gpsHint ?? null,
+      }),
+    },
+  );
+}
+
+export async function speak(text: string): Promise<void> {
+  const token = await ensureTouristToken();
+  const apiBase = `${window.location.protocol}//${window.location.hostname}:8000`;
+  const response = await fetch(`${apiBase}/api/v1/tts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ text }),
+  });
+  if (!response.ok) throw new Error("TTS failed");
+  const audioBlob = await response.blob();
+  const audioUrl = URL.createObjectURL(audioBlob);
+  const audio = new Audio(audioUrl);
+  audio.play();
+  audio.onended = () => URL.revokeObjectURL(audioUrl);
+}
 
 export async function wsUrl(sessionId: string): Promise<WsConnectInfo> {
   const token = await ensureTouristToken();

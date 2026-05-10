@@ -1,0 +1,57 @@
+# RAG retrieval probes for the demo-scenic area.
+#
+# Each probe asserts that for `query`, at least one of the top-k retrieved
+# chunks has a source_id that matches `expected_source` (or any of
+# `expected_any`). Add new entries here to grow regression coverage — no
+# Python changes required.
+#
+# Schema:
+#   - query: string, the user question
+#     expected_source: string, exact source_id to match (optional)
+#     expected_any: list[string], any of these source_ids counts as pass
+#                   (optional; takes precedence when present)
+#     top_k: int, top-k to consider (optional, default 3)
+#     tag: free-form label for grouping in reports
+
+probes:
+  # --- English smoke probes (kept from original hardcoded set) ---
+  - query: "lane food shopping"
+    expected_source: "landmark:nanhou-street"
+    tag: en/food
+
+  - query: "bingxin literature former residence"
+    expected_source: "landmark:linjuemin-bingxin"
+    tag: en/literature
+
+  - query: "translation education yan fu"
+    expected_source: "landmark:yanfu-former-residence"
+    tag: en/education
+
+  - query: "shipbuilding modernization navy"
+    expected_source: "landmark:shenbaozhen-former-residence"
+    tag: en/history
+
+  - query: "performance night minju heritage"
+    expected_source: "landmark:shuixie-stage"
+    tag: en/heritage
+
+  # --- Chinese probes covering common visitor intents ---
+  - query: "附近有什么好吃的"
+    expected_source: "landmark:nanhou-street"
+    tag: zh/food
+
+  - query: "第一次来三坊七巷，先从哪里开始逛？"
+    expected_source: "landmark:nanhou-street"
+    tag: zh/route
+
+  - query: "雨天怎么逛三坊七巷"
+    expected_source: "doc:sfqx-safety-accessibility"
+    tag: zh/safety
+
+  - query: "带孩子看什么"
+    expected_source: "landmark:linjuemin-bingxin"
+    tag: zh/family
+
+  - query: "严复故居有什么看点"
+    expected_source: "landmark:yanfu-former-residence"
+    tag: zh/landmark

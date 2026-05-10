@@ -11,6 +11,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Live2D](https://img.shields.io/badge/Live2D-Cubism%205-FF6F00)](https://www.live2d.com/)
 [![License](https://img.shields.io/badge/License-Private-red)](#license)
 
 [English](#english) | 中文
@@ -33,7 +34,7 @@ Aether Guide 是一套面向景区的 **AI 数字人智慧导览系统**，采�
 
 ### 游客端
 
-- **AI 数字人对话** — 基于 LLM 的流式对话，支持 SSE 实时推送
+- **AI 数字人 (Live2D)** — Cubism 5 "Mao Pro" 角色浮窗,眼动跟随鼠标 / 点击触发表情与动作,叠加 LLM 流式对话(SSE)
 - **智能导览** — 景点推荐、路线规划、语音讲解
 - **拍照识景** — 上传照片自动识别景点
 - **安全保障** — 一键求助、走失上报、安全告警
@@ -99,6 +100,7 @@ Aether Guide 是一套面向景区的 **AI 数字人智慧导览系统**，采�
 | 层级 | 技术选型 |
 |------|---------|
 | **前端** | Next.js 15 · React 19 · Tailwind CSS 4 · TanStack Query |
+| **数字人** | Live2D Cubism 5 Core · pixi.js 7 · pixi-live2d-display-lipsyncpatch |
 | **后端** | FastAPI · Pydantic v2 · SQLAlchemy (async) · Alembic |
 | **AI 能力** | LiteLLM (可插拔) · RAG 检索增强 · 向量检索 |
 | **基础设施** | PostgreSQL (pgvector) · Redis · MinIO · LiveKit |
@@ -112,6 +114,33 @@ Aether Guide 是一套面向景区的 **AI 数字人智慧导览系统**，采�
 - **Python 3.12** + [uv](https://docs.astral.sh/uv/)
 - **Node.js 20+** + npm
 - **Docker** (可选) — 用于启动 PostgreSQL、Redis 等基础设施
+
+### 🚀 一键启动(推荐)
+
+**Windows** — 双击项目根目录的 `start.cmd` 即可,或命令行:
+
+```powershell
+.\start.cmd
+# 可选参数:-NoAdmin / -NoTourist / -Docker / -Clean / -SkipInstall
+```
+
+**macOS / Linux**:
+
+```bash
+./start.sh
+# 或:make start
+```
+
+一键脚本会自动完成以下步骤:
+
+1. 预检 `uv` / `node` / `npm` 工具链
+2. 若 `node_modules` 或 `.venv` 缺失自动安装依赖(首次运行约 3-5 分钟)
+3. 释放 8000 / 3001 / 3002 端口上的残留进程
+4. 同时启动 **API + 游客端 + 管理端**(Windows 下各服务独立控制台窗口)
+5. HTTP 健康探测就绪后自动打开浏览器访问游客端
+6. `Ctrl+C` 优雅停止所有服务并清理端口
+
+### 手动启动(按服务逐个拉起)
 
 ### 1. 克隆项目
 
@@ -188,6 +217,69 @@ export AETHER_DATABASE_URL="postgresql+asyncpg://aether:aether@localhost:5432/ae
 make demo
 ```
 
+## 数字人 (Live2D)
+
+游客端内置了一个 Live2D Cubism 5 数字人作为导览助手 **"知行"**，默认挂载在主页右下角。
+
+### 运行要求
+
+- 浏览器需支持 **WebGL 2.0**（主流浏览器均已支持）
+- `apps/web-tourist/public/live2d/live2dcubismcore.min.js` 必须存在（Cubism Core 运行时，约 200 KB）
+- `apps/web-tourist/public/live2d/mao_pro/` 下需包含 `model3.json` + `moc3` + motions/expressions/physics/pose/cdi 以及 `mao_pro.4096/texture_00.png`
+
+### 交互行为
+
+| 事件 | 行为 |
+|------|------|
+| 鼠标移动 | 眼睛跟随光标（`autoInteract`） |
+| 点击角色 | 播放随机动作 + 切换表情 |
+| 视口尺寸变化 | `ResizeObserver` 自适应画布 |
+| 组件卸载 | 销毁 PIXI Application 与模型，释放 WebGL 上下文 |
+
+### 关键文件
+
+```
+apps/web-tourist/
+├── app/
+│   ├── layout.tsx                       # 以 beforeInteractive 策略预加载 Cubism Core
+│   ├── page.tsx                         # 在 <main> 末尾以 next/dynamic(ssr:false) 挂载浮窗
+│   ├── components/Live2DMao.tsx         # 数字人客户端组件
+│   └── linjing.css                      # .live2d-mao-floating 定位样式
+└── public/live2d/
+    ├── live2dcubismcore.min.js          # Live2D 官方 Cubism 5 Core 运行时
+    └── mao_pro/                         # Cubism 5 "Mao Pro" 示例模型
+        ├── mao_pro.model3.json
+        ├── mao_pro.moc3
+        ├── motions/*.motion3.json
+        ├── expressions/*.exp3.json
+        └── mao_pro.4096/texture_00.png
+```
+
+### 替换模型
+
+想换成自己的 Cubism 3/4/5 模型：
+
+1. 将整套模型资产（`.model3.json` + `.moc3` + motions / expressions / textures）放到 `apps/web-tourist/public/live2d/<your-model>/`
+2. 修改 `apps/web-tourist/app/page.tsx` 中的挂载：
+
+   ```tsx
+   <Live2DMao
+     modelUrl="/live2d/<your-model>/<your-model>.model3.json"
+     width={280}
+     height={420}
+   />
+   ```
+
+3. 如需接入 TTS 口型同步，可调用组件内部 `model.speak(audioUrl)`（`pixi-live2d-display-lipsyncpatch` 原生支持）。
+
+### 授权说明
+
+> ⚠️ **务必确认**：本项目仓库附带的 `mao_pro` 是 **Live2D 官方示例模型**，并非可无限制再分发的资产。
+
+- **Cubism Core 运行时** (`live2dcubismcore.min.js`) 受 *Live2D Proprietary Software License* 约束，商用时需在产品"关于"页显示 "Live2D Cubism SDK" 版权声明。参见 <https://www.live2d.com/en/sdk/license/>
+- **Mao Pro 模型**：普通用户及小规模企业在同意授权协议下可用于商业用途；中/大规模企业只能用于非公开的内部试用。详见 [`apps/web-tourist/public/live2d/mao_pro/LICENSE.txt`](apps/web-tourist/public/live2d/mao_pro/LICENSE.txt) 及 <https://www.live2d.com/zh-CHS/download/sample-data/>
+- 生产环境建议替换为自有或已取得授权的模型。
+
 ## API 接口
 
 ```
@@ -232,6 +324,9 @@ aether-guide/
 │   │   │   └── worker/         # 后台任务
 │   │   └── alembic/            # 数据库迁移
 │   ├── web-tourist/            # 游客端 (Next.js)
+│   │   ├── app/components/
+│   │   │   └── Live2DMao.tsx   # Live2D 数字人浮窗组件
+│   │   └── public/live2d/      # Cubism Core + mao_pro 模型资产
 │   └── web-admin/              # 管理端 (Next.js)
 ├── packages/
 │   └── design-system/          # 共享设计系统
@@ -277,6 +372,9 @@ docker compose -f infra/docker-compose.yml up -d
 - [Next.js](https://nextjs.org/) — React 全栈框架
 - [LiteLLM](https://github.com/BerriAI/litellm) — 统一 LLM 调用层
 - [pgvector](https://github.com/pgvector/pgvector) — PostgreSQL 向量检索扩展
+- [Live2D Cubism](https://www.live2d.com/) — 2D 数字人动画引擎与 "Mao Pro" 示例模型
+- [pixi-live2d-display-lipsyncpatch](https://github.com/RaSan147/pixi-live2d-display) — PIXI 7 + Cubism 4/5 兼容的 Live2D 插件
+- [PixiJS](https://pixijs.com/) — 高性能 2D WebGL 渲染引擎
 
 ---
 
@@ -294,7 +392,9 @@ docker compose -f infra/docker-compose.yml up -d
 
 **Aether Guide** is an AI-powered digital human guide platform for scenic areas. It features LLM-based conversational AI, RAG knowledge retrieval, multi-modal positioning, and safety alerting — delivering an immersive smart tour experience.
 
-See the [API spec](docs/api/openapi.yaml) and [architecture diagram](#技术架构) above for details.
+A **Live2D Cubism 5** avatar (Mao Pro) is rendered as a floating guide on the tourist home page via `pixi.js` + `pixi-live2d-display-lipsyncpatch`. The model tracks the cursor, reacts to taps with random motions/expressions, and can be swapped out for any Cubism 3/4/5 `.model3.json` asset.
+
+See the [API spec](docs/api/openapi.yaml), the [architecture diagram](#技术架构), and the [数字人 (Live2D)](#数字人-live2d) section above for details.
 
 ### Quick Start
 
@@ -308,6 +408,10 @@ npm install
 npm run web:dev:tourist  # http://localhost:3001
 npm run web:dev:admin    # http://localhost:3002
 ```
+
+### Live2D Licensing Notice
+
+The bundled **Mao Pro** model and `live2dcubismcore.min.js` runtime are proprietary Live2D Inc. assets. Commercial deployment requires agreement to the [Live2D Sample Data License](https://www.live2d.com/en/download/sample-data/) and the [Live2D Proprietary Software License](https://www.live2d.com/en/sdk/license/). Replace with your own licensed model for production use.
 
 ### License
 

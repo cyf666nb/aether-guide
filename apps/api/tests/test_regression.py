@@ -10,6 +10,7 @@ import pytest
 from aether_api.models import Base
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect
 
 
@@ -99,9 +100,8 @@ async def test_storage_mode_database_end_to_end(tmp_path: Path) -> None:
 # ---------- Auth (Task 5) regression tests ---------------------------------
 
 
-def _auth_client():
+def _auth_client() -> TestClient:
     from aether_api.main import app
-    from fastapi.testclient import TestClient
 
     return TestClient(app)
 
@@ -369,11 +369,11 @@ async def test_ai_client_production_timeout_raises_503(
     settings = Settings(
         environment="production",
         ai_provider="litellm",
-        jwt_secret="prod-secret-not-default-value-long-enough",  # type: ignore[arg-type]
+        jwt_secret="prod-secret-not-default-value-long-enough",
         cors_origins=["https://prod.example"],
     )
 
-    async def slow_answer(*_args: object, **_kwargs: object) -> object:
+    async def slow_answer(*_args: object, **_kwargs: object) -> None:
         await asyncio.sleep(5)  # exceeds default llm_timeout_seconds
 
     monkeypatch.setattr(ai_module.AIClient, "_litellm_answer", slow_answer)
@@ -387,6 +387,115 @@ async def test_ai_client_production_timeout_raises_503(
             )
         )
     assert exc_info.value.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_ai_client_anthropic_provider_uses_messages_protocol(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Anthropic-compatible providers receive grounded Messages API payloads."""
+    from aether_api.config import Settings
+    from aether_api.services.ai import client as ai_module
+    from pydantic import SecretStr
+
+    settings = Settings(
+        ai_provider="anthropic",
+        anthropic_api_key=SecretStr("test-key"),
+        anthropic_model="ark-code-latest",
+    )
+    captured: dict[str, object] = {}
+
+    async def fake_post(
+        _self: object,
+        url: str,
+        headers: dict[str, str],
+        payload: dict[str, object],
+    ) -> dict[str, object]:
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["payload"] = payload
+        return {
+            "content": [
+                {"type": "text", "text": "榕巷知行：从南后街开始，先看街巷格局。"}
+            ],
+            "usage": {"input_tokens": 32, "output_tokens": 18},
+        }
+
+    monkeypatch.setattr(ai_module.AIClient, "_anthropic_post", fake_post)
+
+    ai_client = ai_module.AIClient(settings)
+    response = await ai_client.generate_reply(
+        ai_module.AIRequest(
+            session_id="s",
+            scenic_id="demo-scenic",
+            prompt="三坊七巷从哪开始逛？",
+            locale="zh-CN",
+            context=[
+                ai_module.AIContextChunk(
+                    source_id="landmark:nanhou-street",
+                    text="南后街是三坊七巷的中轴商业街。",
+                    score=0.91,
+                )
+            ],
+            system_prompt="榕巷知行：三坊七巷专属导览。",
+        )
+    )
+
+    assert captured["url"] == "https://ark.cn-beijing.volces.com/api/coding/v1/messages"
+    headers = captured["headers"]
+    assert isinstance(headers, dict)
+    assert headers["x-api-key"] == "test-key"
+    assert headers["anthropic-version"] == "2023-06-01"
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["model"] == "ark-code-latest"
+    assert payload["thinking"] == {"type": "disabled"}
+    assert "榕巷知行" in str(payload["system"])
+    assert "Context:" in str(payload["messages"])
+    assert "Citation contract:" in str(payload["messages"])
+    assert "landmark:nanhou-street" in str(payload["messages"])
+    assert response.content.startswith("榕巷知行")
+    assert response.citations == ["landmark:nanhou-street"]
+
+
+@pytest.mark.asyncio
+async def test_ai_client_answers_identity_questions_locally(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Identity questions stay on the scenic persona even if provider has defaults."""
+    from aether_api.config import Settings
+    from aether_api.services.ai import client as ai_module
+    from pydantic import SecretStr
+
+    settings = Settings(
+        ai_provider="anthropic",
+        anthropic_api_key=SecretStr("test-key"),
+        anthropic_model="ark-code-latest",
+    )
+    async def fake_post(
+        _self: object,
+        _url: str,
+        _headers: dict[str, str],
+        _payload: dict[str, object],
+    ) -> dict[str, object]:
+        raise AssertionError("identity questions should not call provider")
+
+    monkeypatch.setattr(ai_module.AIClient, "_anthropic_post", fake_post)
+
+    ai_client = ai_module.AIClient(settings)
+    response = await ai_client.generate_reply(
+        ai_module.AIRequest(
+            session_id="s",
+            scenic_id="demo-scenic",
+            prompt="你是谁",
+            locale="zh-CN",
+            system_prompt="榕巷知行：三坊七巷专属导览。",
+        )
+    )
+
+    assert response.content.startswith("我是榕巷知行")
+    assert response.citations == ["persona:current"]
+    assert response.cache_hit is True
 
 
 def test_readyz_reports_redis_outage(monkeypatch: pytest.MonkeyPatch) -> None:

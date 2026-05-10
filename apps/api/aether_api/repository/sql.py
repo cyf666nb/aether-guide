@@ -3,7 +3,7 @@
 
 Notes:
 - Soft-delete (deleted_at is null) is applied on every read path.
-- `load_seed` idempotently populates scenic_areas + landmarks when empty,
+- `load_seed` idempotently refreshes the configured demo scenic area,
   mirroring InMemoryRepository behaviour so the two backends are interchangeable.
 - Each method opens a short transaction; sessions are never retained.
 """
@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -43,7 +43,9 @@ from aether_api.schemas.admin import (
 from aether_api.schemas.common import GeoPoint, TimedMetric
 from aether_api.schemas.feedback import FeedbackDTO, FeedbackRequest
 from aether_api.schemas.landmarks import LandmarkDTO
+from aether_api.schemas.rag import KnowledgeChunkDTO
 from aether_api.schemas.sessions import SessionDTO, SessionStatus
+from aether_api.services.rag.seed import build_seed_chunks, seed_document_to_dto
 
 
 def _landmark_to_dto(landmark: m.Landmark) -> LandmarkDTO:
@@ -57,6 +59,18 @@ def _landmark_to_dto(landmark: m.Landmark) -> LandmarkDTO:
         avg_duration_min=landmark.avg_duration_min,
         audio_cache_uri=landmark.audio_cache_uri,
         emergency_nearby=list(landmark.emergency_nearby or []),
+    )
+
+
+def _document_to_dto(document: m.Document) -> DocumentDTO:
+    return DocumentDTO(
+        id=document.id,
+        scenic_id=document.scenic_id,
+        title=document.title,
+        source_uri=document.source_uri,
+        version=document.version,
+        status=DocumentStatus(document.status),
+        indexed_at=document.indexed_at,
     )
 
 
@@ -80,44 +94,140 @@ class SqlRepository:
     # -- seeding -------------------------------------------------------------
 
     async def load_seed(self) -> None:
-        """Populate scenic_areas + landmarks when the table is empty. Idempotent."""
+        """Populate or refresh the configured demo scenic area. Idempotent."""
         seed_path = self._settings.seed_data_path
         if not seed_path.exists():
             return
         async with self._sessions() as session:
-            existing = await session.scalar(select(func.count()).select_from(m.ScenicArea))
-            if existing and existing > 0:
-                return
-
             raw_payload = await asyncio.to_thread(seed_path.read_text, encoding="utf-8")
             payload = json.loads(raw_payload)
             scenic_id = payload["scenic_id"]
 
-            session.add(
-                m.ScenicArea(
-                    id=scenic_id,
-                    name=payload.get("name", scenic_id),
-                    default_persona_id=payload["default_persona_id"],
-                    atmosphere=payload.get("atmosphere", "forest"),
-                )
-            )
-            for item in payload.get("landmarks", []):
-                geo = item["geo_point"]
+            scenic = await session.get(m.ScenicArea, scenic_id)
+            if scenic is None:
                 session.add(
-                    m.Landmark(
-                        id=item["id"],
-                        scenic_id=scenic_id,
-                        name=item["name"],
-                        summary=item["summary"],
-                        lat=geo["lat"],
-                        lng=geo["lng"],
-                        avg_duration_min=item.get("avg_duration_min", 10),
-                        tags=item.get("tags", []),
-                        audio_cache_uri=item.get("audio_cache_uri"),
-                        emergency_nearby=item.get("emergency_nearby", []),
-                        reference_photos=item.get("reference_photos", []),
+                    m.ScenicArea(
+                        id=scenic_id,
+                        name=payload.get("name", scenic_id),
+                        default_persona_id=payload["default_persona_id"],
+                        atmosphere=payload.get("atmosphere", "forest"),
                     )
                 )
+            else:
+                scenic.name = payload.get("name", scenic_id)
+                scenic.default_persona_id = payload["default_persona_id"]
+                scenic.atmosphere = payload.get("atmosphere", "forest")
+                scenic.deleted_at = None
+
+            seed_landmark_ids = {item["id"] for item in payload.get("landmarks", [])}
+            existing_landmarks = await session.scalars(
+                select(m.Landmark).where(m.Landmark.scenic_id == scenic_id)
+            )
+            for landmark in existing_landmarks.all():
+                if landmark.id not in seed_landmark_ids:
+                    landmark.deleted_at = datetime.now(UTC)
+
+            for item in payload.get("landmarks", []):
+                geo = item["geo_point"]
+                existing = await session.get(m.Landmark, item["id"])
+                if existing is None:
+                    session.add(
+                        m.Landmark(
+                            id=item["id"],
+                            scenic_id=scenic_id,
+                            name=item["name"],
+                            summary=item["summary"],
+                            lat=geo["lat"],
+                            lng=geo["lng"],
+                            avg_duration_min=item.get("avg_duration_min", 10),
+                            tags=item.get("tags", []),
+                            audio_cache_uri=item.get("audio_cache_uri"),
+                            emergency_nearby=item.get("emergency_nearby", []),
+                            reference_photos=item.get("reference_photos", []),
+                        )
+                    )
+                    continue
+                existing.scenic_id = scenic_id
+                existing.name = item["name"]
+                existing.summary = item["summary"]
+                existing.lat = geo["lat"]
+                existing.lng = geo["lng"]
+                existing.avg_duration_min = item.get("avg_duration_min", 10)
+                existing.tags = item.get("tags", [])
+                existing.audio_cache_uri = item.get("audio_cache_uri")
+                existing.emergency_nearby = item.get("emergency_nearby", [])
+                existing.reference_photos = item.get("reference_photos", [])
+                existing.deleted_at = None
+            for item in payload.get("personas", []):
+                persona_row = await session.get(m.Persona, item["id"])
+                if persona_row is None:
+                    session.add(
+                        m.Persona(
+                            id=item["id"],
+                            scenic_id=item.get("scenic_id", scenic_id),
+                            name=item["name"],
+                            voice_id=item.get("voice_id", "voice-demo"),
+                            avatar_id=item.get("avatar_id", "avatar-demo"),
+                            system_prompt=item["system_prompt"],
+                            version=item.get("version", "v1"),
+                            status=item.get("status", "live"),
+                        )
+                    )
+                    continue
+                persona_row.scenic_id = item.get("scenic_id", scenic_id)
+                persona_row.name = item["name"]
+                persona_row.voice_id = item.get("voice_id", "voice-demo")
+                persona_row.avatar_id = item.get("avatar_id", "avatar-demo")
+                persona_row.system_prompt = item["system_prompt"]
+                persona_row.version = item.get("version", "v1")
+                persona_row.status = item.get("status", "live")
+                persona_row.deleted_at = None
+            now = datetime.now(UTC)
+            for item in payload.get("knowledge_documents", []):
+                if not isinstance(item, dict):
+                    continue
+                text = item.get("text")
+                if not isinstance(text, str) or not text.strip():
+                    continue
+                document = seed_document_to_dto(item, scenic_id, indexed_at=now)
+                document_row = await session.get(m.Document, document.id)
+                if document_row is None:
+                    document_row = m.Document(
+                        id=document.id,
+                        scenic_id=document.scenic_id,
+                        title=document.title,
+                        source_uri=document.source_uri,
+                        version=document.version,
+                        status=document.status.value,
+                        indexed_at=document.indexed_at,
+                    )
+                    session.add(document_row)
+                else:
+                    document_row.scenic_id = document.scenic_id
+                    document_row.title = document.title
+                    document_row.source_uri = document.source_uri
+                    document_row.version = document.version
+                    document_row.status = document.status.value
+                    document_row.indexed_at = document.indexed_at
+                    document_row.deleted_at = None
+
+                await session.execute(delete(m.Chunk).where(m.Chunk.doc_id == document.id))
+                for chunk in build_seed_chunks(document, text):
+                    session.add(
+                        m.Chunk(
+                            id=chunk.id,
+                            doc_id=document.id,
+                            ord=chunk.ord,
+                            text=chunk.text,
+                            embedding=chunk.embedding,
+                            sparse_vector=chunk.sparse_vector,
+                            chunk_metadata={
+                                **chunk.metadata,
+                                "scenic_id": chunk.scenic_id,
+                                "source_id": chunk.source_id,
+                            },
+                        )
+                    )
             await session.commit()
 
     # -- sessions ------------------------------------------------------------
@@ -217,21 +327,52 @@ class SqlRepository:
             )
             session.add(row)
             await session.commit()
-            return DocumentDTO(
-                id=row.id,
-                scenic_id=row.scenic_id,
-                title=row.title,
-                source_uri=row.source_uri,
-                version=row.version,
-                status=DocumentStatus(row.status),
-                indexed_at=row.indexed_at,
-            )
+            return _document_to_dto(row)
+
+    async def get_document(self, document_id: str) -> DocumentDTO:
+        async with self._sessions() as session:
+            row = await session.get(m.Document, document_id)
+            if row is None or row.deleted_at is not None:
+                raise AppError(ErrorCode.not_found, "Document was not found.", status_code=404)
+            return _document_to_dto(row)
+
+    async def update_document_index_status(
+        self,
+        document_id: str,
+        status: DocumentStatus,
+        *,
+        indexed_at: datetime | None = None,
+    ) -> DocumentDTO:
+        async with self._sessions() as session:
+            row = await session.get(m.Document, document_id)
+            if row is None or row.deleted_at is not None:
+                raise AppError(ErrorCode.not_found, "Document was not found.", status_code=404)
+            row.status = status.value
+            if indexed_at is not None:
+                row.indexed_at = indexed_at
+            await session.commit()
+            return _document_to_dto(row)
 
     async def document_progress(self, document_id: str) -> IndexProgressDTO:
         async with self._sessions() as session:
             row = await session.get(m.Document, document_id)
             if row is None or row.deleted_at is not None:
                 raise AppError(ErrorCode.not_found, "Document was not found.", status_code=404)
+            current_status = DocumentStatus(row.status)
+            if current_status == DocumentStatus.ready:
+                return IndexProgressDTO(
+                    document_id=document_id,
+                    status=DocumentStatus.ready,
+                    percent=100,
+                    message="Indexing complete.",
+                )
+            if current_status == DocumentStatus.failed:
+                return IndexProgressDTO(
+                    document_id=document_id,
+                    status=DocumentStatus.failed,
+                    percent=100,
+                    message="Indexing failed.",
+                )
             created = row.created_at
             elapsed = (datetime.now(UTC) - created).total_seconds()
             if elapsed < 30:
@@ -256,6 +397,71 @@ class SqlRepository:
                 percent=percent,
                 message=message,
             )
+
+    async def replace_document_chunks(
+        self,
+        document_id: str,
+        chunks: list[KnowledgeChunkDTO],
+    ) -> None:
+        async with self._sessions() as session:
+            row = await session.get(m.Document, document_id)
+            if row is None or row.deleted_at is not None:
+                raise AppError(ErrorCode.not_found, "Document was not found.", status_code=404)
+            await session.execute(delete(m.Chunk).where(m.Chunk.doc_id == document_id))
+            for chunk in chunks:
+                session.add(
+                    m.Chunk(
+                        id=chunk.id,
+                        doc_id=document_id,
+                        ord=chunk.ord,
+                        text=chunk.text,
+                        embedding=chunk.embedding,
+                        sparse_vector=chunk.sparse_vector,
+                        chunk_metadata={
+                            **chunk.metadata,
+                            "scenic_id": chunk.scenic_id,
+                            "source_id": chunk.source_id,
+                        },
+                    )
+                )
+            await session.commit()
+
+    async def list_knowledge_chunks(self, scenic_id: str) -> list[KnowledgeChunkDTO]:
+        async with self._sessions() as session:
+            result = await session.execute(
+                select(m.Chunk, m.Document)
+                .join(m.Document, m.Chunk.doc_id == m.Document.id)
+                .where(
+                    m.Document.scenic_id == scenic_id,
+                    m.Document.status == DocumentStatus.ready.value,
+                    m.Document.deleted_at.is_(None),
+                    m.Chunk.deleted_at.is_(None),
+                )
+                .order_by(m.Document.id, m.Chunk.ord)
+            )
+            chunks: list[KnowledgeChunkDTO] = []
+            for chunk, document in result.all():
+                metadata = dict(chunk.chunk_metadata or {})
+                source_id = metadata.get("source_id")
+                chunk_scenic_id = metadata.get("scenic_id")
+                chunks.append(
+                    KnowledgeChunkDTO(
+                        id=chunk.id,
+                        document_id=document.id,
+                        scenic_id=chunk_scenic_id
+                        if isinstance(chunk_scenic_id, str)
+                        else document.scenic_id,
+                        source_id=source_id
+                        if isinstance(source_id, str)
+                        else f"doc:{document.id}:chunk:{chunk.ord}",
+                        text=chunk.text,
+                        ord=chunk.ord,
+                        embedding=chunk.embedding,
+                        sparse_vector=chunk.sparse_vector,
+                        metadata=metadata,
+                    )
+                )
+            return chunks
 
     # -- personas ------------------------------------------------------------
 
@@ -283,6 +489,22 @@ class SqlRepository:
             )
             session.add(row)
             await session.commit()
+            return PersonaDTO(
+                id=row.id,
+                scenic_id=row.scenic_id,
+                name=row.name,
+                voice_id=row.voice_id,
+                avatar_id=row.avatar_id,
+                system_prompt=row.system_prompt,
+                version=row.version,
+                status=row.status,
+            )
+
+    async def get_persona(self, persona_id: str) -> PersonaDTO:
+        async with self._sessions() as session:
+            row = await session.get(m.Persona, persona_id)
+            if row is None or row.deleted_at is not None:
+                raise AppError(ErrorCode.not_found, "Persona was not found.", status_code=404)
             return PersonaDTO(
                 id=row.id,
                 scenic_id=row.scenic_id,

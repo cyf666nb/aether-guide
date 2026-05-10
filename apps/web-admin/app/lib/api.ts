@@ -277,7 +277,11 @@ export async function getReplay(sessionId = "demo-session") {
         { at: "00:02.1", type: "LLM 首 token" },
         { at: "00:02.6", type: "TTS 首音" }
       ],
-      retrieved_chunks: ["seed:intro", "moon-gate:history", "route:safety"]
+      retrieved_chunks: [
+        "landmark:nanhou-street",
+        "landmark:linjuemin-bingxin",
+        "landmark:yanfu-former-residence"
+      ]
     };
   }
 }

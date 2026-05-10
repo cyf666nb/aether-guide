@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { AetherLogo } from "@aether/design-system/icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { clearAdminToken, getAdminToken } from "../lib/api";
 
 const links = [
@@ -15,12 +15,30 @@ const links = [
   ["告警", "/alerts"]
 ];
 
-function useRequireAdmin() {
+/**
+ * Client-side auth gate. We render nothing until we've confirmed a token
+ * exists in sessionStorage; this prevents the admin shell from flashing
+ * for an unauthenticated visitor before the redirect lands.
+ *
+ * True server-side protection would require migrating the admin token to
+ * an HttpOnly cookie so Next middleware can read it on the edge — out of
+ * scope for this change.
+ */
+function useAdminGate(): "checking" | "authed" | "redirecting" {
   const router = useRouter();
+  const [state, setState] = useState<"checking" | "authed" | "redirecting">(
+    "checking",
+  );
   useEffect(() => {
     if (typeof window !== "object") return;
-    if (!getAdminToken()) router.replace("/login");
+    if (getAdminToken()) {
+      setState("authed");
+      return;
+    }
+    setState("redirecting");
+    router.replace("/login");
   }, [router]);
+  return state;
 }
 
 export function AdminShell({
@@ -30,7 +48,11 @@ export function AdminShell({
   children: React.ReactNode;
   active?: string;
 }) {
-  useRequireAdmin();
+  const gate = useAdminGate();
+  if (gate !== "authed") {
+    // Render an empty scaffold so layout height doesn't jump during redirect.
+    return <main className="zhaji-shell admin-layout" aria-busy="true" />;
+  }
   return (
     <main className="zhaji-shell admin-layout">
       <aside className="side-nav">
@@ -77,4 +99,3 @@ export function AdminHeader({ eyebrow, title }: { eyebrow: string; title: string
     </div>
   );
 }
-

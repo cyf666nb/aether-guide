@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { adminLogin, getAdminToken } from "../lib/api";
 
-const IS_DEV = process.env.NODE_ENV === "development";
+const IS_DEV = process.env.NEXT_PUBLIC_DEMO_MODE === "1";
 
 export default function LoginPage() {
   const router = useRouter();

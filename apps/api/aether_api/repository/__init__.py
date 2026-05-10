@@ -11,6 +11,7 @@ The active implementation is chosen by settings.storage_mode.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -20,6 +21,7 @@ from aether_api.schemas.admin import (
     AuditLogPage,
     DashboardOverviewDTO,
     DocumentDTO,
+    DocumentStatus,
     IndexProgressDTO,
     PersonaDTO,
     PromptExperimentDTO,
@@ -28,6 +30,7 @@ from aether_api.schemas.admin import (
 )
 from aether_api.schemas.feedback import FeedbackDTO, FeedbackRequest
 from aether_api.schemas.landmarks import LandmarkDTO
+from aether_api.schemas.rag import KnowledgeChunkDTO
 from aether_api.schemas.sessions import SessionDTO
 
 
@@ -74,7 +77,25 @@ class Repository(Protocol):
         version: str,
     ) -> DocumentDTO: ...
 
+    async def get_document(self, document_id: str) -> DocumentDTO: ...
+
+    async def update_document_index_status(
+        self,
+        document_id: str,
+        status: DocumentStatus,
+        *,
+        indexed_at: datetime | None = None,
+    ) -> DocumentDTO: ...
+
     async def document_progress(self, document_id: str) -> IndexProgressDTO: ...
+
+    async def replace_document_chunks(
+        self,
+        document_id: str,
+        chunks: list[KnowledgeChunkDTO],
+    ) -> None: ...
+
+    async def list_knowledge_chunks(self, scenic_id: str) -> list[KnowledgeChunkDTO]: ...
 
     async def upsert_persona(
         self,
@@ -87,6 +108,8 @@ class Repository(Protocol):
         version: str,
         status: str,
     ) -> PersonaDTO: ...
+
+    async def get_persona(self, persona_id: str) -> PersonaDTO: ...
 
     async def create_prompt_experiment(
         self,
@@ -146,20 +169,56 @@ async def create_repository(settings: Settings) -> Repository:
 
     - inmemory: instantiate InMemoryRepository, load seed, return.
     - database: build async engine + session factory, instantiate SqlRepository,
-      idempotently seed, and return.
+      idempotently seed, and return. **In non-production environments, if the
+      database is unreachable we automatically degrade to InMemoryRepository
+      so a single bad DB env var doesn't take the whole app down on boot.**
+
+    The active backend is recorded on the returned object as `.backend_name`
+    (`"inmemory"` or `"database"`) so /healthz can surface degradation.
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     if settings.storage_mode == "inmemory":
         from aether_api.repository.inmemory import InMemoryRepository
 
         repo: Repository = InMemoryRepository(settings)
         await repo.load_seed()
+        # Stamp the backend so /healthz can report it. Using setattr keeps
+        # the Protocol clean (no extra required attribute).
+        setattr(repo, "backend_name", "inmemory")
         return repo
 
     if settings.storage_mode == "database":
         from aether_api.repository.sql import make_sql_repository
 
-        sql_repo = make_sql_repository(settings)
-        await sql_repo.load_seed()
+        try:
+            sql_repo = make_sql_repository(settings)
+            await sql_repo.load_seed()
+        except Exception as exc:  # noqa: BLE001 - want to catch any driver-level error
+            # Never auto-fallback in production: silently switching to a
+            # volatile in-memory store there would mask data loss.
+            if settings.environment == "production":
+                logger.exception(
+                    "Database backend failed to initialize in production; refusing to fall back."
+                )
+                raise
+
+            logger.warning(
+                "Database backend unavailable (%s: %s); falling back to inmemory.",
+                type(exc).__name__,
+                exc,
+            )
+            from aether_api.repository.inmemory import InMemoryRepository
+
+            fallback: Repository = InMemoryRepository(settings)
+            await fallback.load_seed()
+            setattr(fallback, "backend_name", "inmemory-fallback")
+            setattr(fallback, "backend_fallback_reason", f"{type(exc).__name__}: {exc}")
+            return fallback
+
+        setattr(sql_repo, "backend_name", "database")
         return sql_repo
 
     raise ValueError(f"Unknown storage_mode: {settings.storage_mode}")

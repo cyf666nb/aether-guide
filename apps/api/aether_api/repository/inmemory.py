@@ -26,7 +26,9 @@ from aether_api.schemas.admin import (
 from aether_api.schemas.common import GeoPoint, TimedMetric
 from aether_api.schemas.feedback import FeedbackDTO, FeedbackRequest
 from aether_api.schemas.landmarks import LandmarkDTO
+from aether_api.schemas.rag import KnowledgeChunkDTO
 from aether_api.schemas.sessions import SessionDTO, SessionStatus
+from aether_api.services.rag.seed import build_seed_chunks, seed_document_to_dto
 
 
 @dataclass(slots=True)
@@ -45,6 +47,7 @@ class InMemoryRepository:
         self._sessions: dict[str, SessionDTO] = {}
         self._documents: dict[str, DocumentDTO] = {}
         self._document_created_at: dict[str, datetime] = {}
+        self._chunks_by_document: dict[str, list[KnowledgeChunkDTO]] = {}
         self._personas: dict[str, PersonaDTO] = {}
         self._persona_prompts: dict[str, str] = {}
         self._experiments: dict[str, PromptExperimentDTO] = {}
@@ -82,6 +85,32 @@ class InMemoryRepository:
             default_persona_id=payload["default_persona_id"],
             landmarks=landmarks,
         )
+        self._personas.clear()
+        self._persona_prompts.clear()
+        for item in payload.get("personas", []):
+            persona = PersonaDTO(
+                id=item["id"],
+                scenic_id=item.get("scenic_id", payload["scenic_id"]),
+                name=item["name"],
+                voice_id=item.get("voice_id", "voice-demo"),
+                avatar_id=item.get("avatar_id", "avatar-demo"),
+                system_prompt=item["system_prompt"],
+                version=item.get("version", "v1"),
+                status=item.get("status", "live"),
+            )
+            self._personas[persona.id] = persona
+            self._persona_prompts[persona.id] = persona.system_prompt
+        now = datetime.now(UTC)
+        for item in payload.get("knowledge_documents", []):
+            if not isinstance(item, dict):
+                continue
+            document = seed_document_to_dto(item, payload["scenic_id"], indexed_at=now)
+            text = item.get("text")
+            if not isinstance(text, str) or not text.strip():
+                continue
+            self._documents[document.id] = document
+            self._document_created_at[document.id] = now
+            self._chunks_by_document[document.id] = build_seed_chunks(document, text)
 
     def _require_seed(self) -> SeedData:
         if self._seed is None:
@@ -152,10 +181,50 @@ class InMemoryRepository:
         self._document_created_at[document.id] = datetime.now(UTC)
         return document
 
+    async def get_document(self, document_id: str) -> DocumentDTO:
+        document = self._documents.get(document_id)
+        if document is None:
+            raise AppError(ErrorCode.not_found, "Document was not found.", status_code=404)
+        return document
+
+    async def update_document_index_status(
+        self,
+        document_id: str,
+        status: DocumentStatus,
+        *,
+        indexed_at: datetime | None = None,
+    ) -> DocumentDTO:
+        document = await self.get_document(document_id)
+        updated = DocumentDTO(
+            id=document.id,
+            scenic_id=document.scenic_id,
+            title=document.title,
+            source_uri=document.source_uri,
+            version=document.version,
+            status=status,
+            indexed_at=indexed_at if status == DocumentStatus.ready else document.indexed_at,
+        )
+        self._documents[document_id] = updated
+        return updated
+
     async def document_progress(self, document_id: str) -> IndexProgressDTO:
         document = self._documents.get(document_id)
         if document is None:
             raise AppError(ErrorCode.not_found, "Document was not found.", status_code=404)
+        if document.status == DocumentStatus.ready:
+            return IndexProgressDTO(
+                document_id=document_id,
+                status=DocumentStatus.ready,
+                percent=100,
+                message="Indexing complete.",
+            )
+        if document.status == DocumentStatus.failed:
+            return IndexProgressDTO(
+                document_id=document_id,
+                status=DocumentStatus.failed,
+                percent=100,
+                message="Indexing failed.",
+            )
         created = self._document_created_at.get(document_id, datetime.now(UTC))
         elapsed = (datetime.now(UTC) - created).total_seconds()
         if elapsed < 30:
@@ -188,6 +257,24 @@ class InMemoryRepository:
             message=message,
         )
 
+    async def replace_document_chunks(
+        self,
+        document_id: str,
+        chunks: list[KnowledgeChunkDTO],
+    ) -> None:
+        await self.get_document(document_id)
+        self._chunks_by_document[document_id] = list(chunks)
+
+    async def list_knowledge_chunks(self, scenic_id: str) -> list[KnowledgeChunkDTO]:
+        chunks: list[KnowledgeChunkDTO] = []
+        for document_id, document_chunks in self._chunks_by_document.items():
+            document = self._documents.get(document_id)
+            if document is None or document.status != DocumentStatus.ready:
+                continue
+            if document.scenic_id == scenic_id:
+                chunks.extend(document_chunks)
+        return sorted(chunks, key=lambda chunk: (chunk.document_id or "", chunk.ord))
+
     async def upsert_persona(
         self,
         *,
@@ -211,6 +298,12 @@ class InMemoryRepository:
         )
         self._personas[persona.id] = persona
         self._persona_prompts[persona.id] = system_prompt
+        return persona
+
+    async def get_persona(self, persona_id: str) -> PersonaDTO:
+        persona = self._personas.get(persona_id)
+        if persona is None:
+            raise AppError(ErrorCode.not_found, "Persona was not found.", status_code=404)
         return persona
 
     async def create_prompt_experiment(

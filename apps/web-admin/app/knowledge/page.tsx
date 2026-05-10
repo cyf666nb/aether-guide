@@ -4,16 +4,16 @@ import { AdminHeader, AdminShell } from "../components/AdminShell";
 export default function KnowledgePage() {
   return (
     <AdminShell active="/knowledge">
-      <AdminHeader eyebrow="Knowledge Base" title="文档版本与检索痕迹" />
+      <AdminHeader eyebrow="Knowledge Base" title="三坊七巷知识库与检索记录" />
       <section className="knowledge-grid">
         <aside className="doc-tree">
           <KnowledgeMark style={{ width: 40, color: "var(--accent-500)" }} />
           <h2 className="type-heading type-heading-3" style={{ marginTop: 16 }}>
-            月门听泉资料包
+            福州三坊七巷资料包
           </h2>
           <div className="scan-document" style={{ marginTop: 20 }} />
           <p className="type-body" style={{ marginTop: 16 }}>
-            上传扫描中，完成后进入 arq 索引队列。
+            南后街、名人故居、古厝建筑与非遗演艺已进入本地 RAG 索引。
           </p>
         </aside>
         <aside className="version-rail">
@@ -26,22 +26,28 @@ export default function KnowledgePage() {
         </aside>
         <article className="doc-preview">
           <p className="caption">Preview</p>
-          <h2 className="type-heading type-heading-2">月门借景与水声设计</h2>
+          <h2 className="type-heading type-heading-2">南后街与名人故居动线</h2>
           <p className="type-body" style={{ marginTop: 16 }}>
-            月门面向东侧水面，清晨逆光时形成半透明轮廓。讲解时应先提示游客站在桥面左侧，
-            再说明“借景”如何把远山压入门洞。
+            首次到访建议从南后街进入，先建立“三坊七巷是福州古城肌理”的整体印象，
+            再转入林觉民·冰心故居、严复故居和小黄楼，形成文学、近代思想与古厝建筑的连续讲解。
           </p>
           <div className="chunk">
             <p className="caption">Retrieved 38 times</p>
-            <p className="type-body">chunk: moon-gate / section: garden-sound / score: 0.92</p>
+            <p className="type-body">
+              chunk: nanhou-street / section: route-intro / score: 0.92
+            </p>
           </div>
-          <div className="chunk" style={{ borderLeftColor: "var(--ember)", background: "rgba(178, 58, 47, 0.08)" }}>
+          <div
+            className="chunk"
+            style={{ borderLeftColor: "var(--ember)", background: "rgba(178, 58, 47, 0.08)" }}
+          >
             <p className="caption">Diff removed</p>
-            <p className="type-body">旧版“最佳拍照点在正午”已删除，避免错误推荐。</p>
+            <p className="type-body">
+              已移除“只推荐夜游”的旧描述，避免忽略故居开放时间与白天研学路线。
+            </p>
           </div>
         </article>
       </section>
     </AdminShell>
   );
 }
-

@@ -56,6 +56,16 @@ export function ThinkingGlyph({ title = "AI thinking", ...props }: IconProps) {
   );
 }
 
+export function CameraGlyph({ title = "Camera", ...props }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" aria-label={title} role="img" {...props}>
+      <path {...strokeProps} d="M36 14h-3l-2-4H17l-2 4h-3a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h24a3 3 0 0 0 3-3V17a3 3 0 0 0-3-3Z" />
+      <circle {...strokeProps} cx="24" cy="25" r="6" />
+      <circle cx="24" cy="25" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function ScanGlyph({ title = "Scanning", ...props }: IconProps) {
   return (
     <svg viewBox="0 0 48 48" aria-label={title} role="img" {...props}>

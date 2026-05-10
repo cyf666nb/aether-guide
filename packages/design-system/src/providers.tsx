@@ -10,7 +10,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             retry: 1,
-            staleTime: 30_000
+            // Most queries in this app hit seed/demo data that changes on
+            // admin writes, not on every navigation. Favor fewer re-fetches.
+            staleTime: 5 * 60_000,
+            gcTime: 30 * 60_000,
+            refetchOnWindowFocus: false,
+            refetchOnReconnect: true
           }
         }
       })

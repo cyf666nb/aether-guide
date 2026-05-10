@@ -3,8 +3,28 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 $env:UV_CACHE_DIR = Join-Path $root ".uv-cache"
 $env:UV_PYTHON_INSTALL_DIR = Join-Path $root ".uv-python"
+
+function Import-DotEnv {
+  param([string]$Path)
+  if (-not (Test-Path $Path)) { return }
+  foreach ($rawLine in Get-Content -Path $Path) {
+    $line = $rawLine.Trim()
+    if (-not $line -or $line.StartsWith("#")) { continue }
+    $match = [regex]::Match($line, '^\s*([^#=\s]+)\s*=\s*(.*)\s*$')
+    if (-not $match.Success) { continue }
+    $name = $match.Groups[1].Value
+    $value = $match.Groups[2].Value.Trim()
+    if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+      $value = $value.Substring(1, $value.Length - 2)
+    }
+    [Environment]::SetEnvironmentVariable($name, $value, "Process")
+  }
+}
+
+Import-DotEnv (Join-Path $root ".env")
+Import-DotEnv (Join-Path $root ".env.local")
+
 if (-not $env:AETHER_STORAGE_MODE) { $env:AETHER_STORAGE_MODE = "inmemory" }
-if (-not $env:AETHER_AI_PROVIDER) { $env:AETHER_AI_PROVIDER = "fake" }
 
 $docker = Get-Command docker -ErrorAction SilentlyContinue
 if ($docker) {

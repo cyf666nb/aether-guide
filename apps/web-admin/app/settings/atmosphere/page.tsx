@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { atmospheres, type Atmosphere } from "@aether/design-system/demo-data";
 import { useEffect, useState } from "react";
 import { AdminHeader, AdminShell } from "../../components/AdminShell";
@@ -46,7 +47,15 @@ export default function AtmospherePage() {
             style={{ textAlign: "left", padding: 0, color: "var(--text-primary)" }}
             type="button"
           >
-            <img src={item.scene} alt={item.name} />
+            <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 10" }}>
+              <Image
+                src={item.scene}
+                alt={item.name}
+                fill
+                sizes="(max-width: 768px) 100vw, 360px"
+                style={{ objectFit: "cover" }}
+              />
+            </div>
             <div>
               <span className="swatch" style={{ background: item.accent }} />
               <h2 className="type-heading type-heading-3" style={{ marginTop: 12 }}>

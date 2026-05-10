@@ -57,13 +57,30 @@
   background: var(--stone-deep);
 }
 
-.hero-stage > img {
+.hero-stage > .amap-container {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  opacity: 0.82;
+}
+
+.amap-marker-label {
+  color: #e8c896 !important;
+  font-size: 11px !important;
+  background: rgba(11, 14, 16, 0.88) !important;
+  padding: 3px 10px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(232, 200, 150, 0.25) !important;
+  white-space: nowrap !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.amap-marker-label::before {
+  border-top-color: rgba(232, 200, 150, 0.25) !important;
+}
+
+.amap-marker-label::after {
+  border-top-color: rgba(11, 14, 16, 0.88) !important;
 }
 
 .guide-presence {
@@ -109,6 +126,27 @@
   color: var(--accent-300);
 }
 
+/* Live2D 画布直接嵌在 .guide-presence 里时,让它填满整个气泡位。
+   .guide-presence 本身通过 aspect-ratio + min(34vw, 220px) 决定大小,
+   Live2DMao 以 width/height=100% 跟随。overflow:hidden 避免角色头发
+   溢出圆角边界。 */
+.guide-presence {
+  overflow: hidden;
+}
+
+.guide-presence > .live2d-mao-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* 容器自身不接收指针事件,让画布直接收点击 */
+  pointer-events: none;
+}
+
+.guide-presence > .live2d-mao-container > .live2d-mao-canvas {
+  pointer-events: auto;
+}
+
 .current-spot {
   position: absolute;
   right: 16px;
@@ -138,6 +176,20 @@
   padding: 18px 16px 112px;
 }
 
+.connection-banner {
+  position: sticky;
+  top: 80px;
+  z-index: 18;
+  margin: 8px 16px 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(232, 200, 150, 0.25);
+  border-radius: var(--radius-md);
+  background: rgba(196, 146, 74, 0.12);
+  color: var(--gold-light);
+  font-size: 13px;
+  text-align: center;
+}
+
 .message-row {
   display: grid;
   gap: 8px;
@@ -161,17 +213,49 @@
   background: rgba(79, 107, 74, 0.18);
 }
 
-.citation {
+.source-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.source-pill,
+.source-chip {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
+  min-height: 22px;
   border-radius: var(--radius-pill);
-  color: var(--stone-void);
-  background: var(--gold-light);
-  font-family: var(--font-mono);
   font-size: 11px;
+  line-height: 1;
+}
+
+.source-pill {
+  padding: 0 8px;
+  color: var(--stone-void);
+  background: rgba(236, 233, 226, 0.72);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.source-pill.rag {
+  background: var(--gold-light);
+}
+
+.source-pill.persona {
+  color: var(--stone-ink);
+  background: rgba(136, 163, 125, 0.96);
+}
+
+.source-chip {
+  max-width: 160px;
+  padding: 0 9px;
+  overflow: hidden;
+  color: rgba(236, 233, 226, 0.82);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid rgba(236, 233, 226, 0.16);
+  background: rgba(236, 233, 226, 0.06);
 }
 
 .composer-dock {
@@ -181,11 +265,28 @@
   left: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 12px;
   padding: 14px 16px 18px;
   background: linear-gradient(180deg, transparent, rgba(11, 14, 16, 0.92) 30%);
 }
+
+.camera-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(236, 233, 226, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(236, 233, 226, 0.06);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.camera-button:hover { color: var(--text-primary); background: rgba(236, 233, 226, 0.12); }
+.camera-button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .voice-field {
   display: grid;
@@ -238,9 +339,49 @@
 
 .viewfinder {
   position: absolute;
-  inset: 96px 24px 220px;
+  inset: 96px 24px 280px;
   display: grid;
   place-items: center;
+  overflow: hidden;
+}
+
+.viewfinder-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 24px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.viewfinder-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  color: var(--gold-light);
+  z-index: 2;
+}
+
+.photo-actions {
+  position: absolute;
+  right: 16px;
+  bottom: 220px;
+  left: 16px;
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+}
+
+.photo-actions .primary-button {
+  flex: 1;
+}
+
+.upload-btn {
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .viewfinder svg {
@@ -308,6 +449,162 @@
   border-radius: var(--radius-md);
 }
 
+.route-prefs {
+  display: grid;
+  gap: 18px;
+  margin: 24px 0;
+}
+
+.pref-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.pref-group {
+  display: grid;
+  gap: 8px;
+  border: none;
+  padding: 0;
+}
+
+.pref-group legend {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.pref-group-full {
+  grid-column: 1 / -1;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pref-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 14px;
+  border: 1px solid rgba(236, 233, 226, 0.14);
+  border-radius: var(--radius-sm);
+  background: rgba(236, 233, 226, 0.04);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.pref-chip:hover { border-color: rgba(236, 233, 226, 0.28); color: var(--text-primary); }
+.pref-chip.active {
+  border-color: var(--gold-light);
+  background: rgba(232, 200, 150, 0.1);
+  color: var(--gold-light);
+}
+
+.pref-chip .chip-desc {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.route-generate-btn {
+  justify-self: stretch;
+  margin-top: 6px;
+  padding: 14px 0;
+  font-size: 16px;
+  border-radius: var(--radius-md);
+}
+
+.route-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 64px 16px;
+  color: var(--text-secondary);
+}
+
+.route-result {
+  margin-top: 32px;
+}
+
+.route-result .route-intro {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.route-stats {
+  color: var(--gold-light);
+  font-size: 14px;
+  font-family: var(--font-mono);
+}
+
+.route-step-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid var(--gold-light);
+  border-radius: 50%;
+  color: var(--gold-light);
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.route-step-body {
+  display: grid;
+  gap: 6px;
+}
+
+.route-highlight {
+  color: var(--gold-light);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.route-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.route-meta span {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(236, 233, 226, 0.06);
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.route-step-connector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 19px;
+  padding: 4px 0 4px 10px;
+}
+
+.walk-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gold-light);
+  opacity: 0.5;
+}
+
+.walk-label {
+  flex: 1;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  border-bottom: 1px dashed rgba(232, 200, 150, 0.25);
+}
+
+/* keep old class for compatibility */
 .route-photo img {
   width: 100%;
   height: 100%;
@@ -322,13 +619,6 @@
   left: 0;
   padding: 48px 16px 16px;
   background: linear-gradient(0deg, rgba(11, 14, 16, 0.9), transparent);
-}
-
-.walk-line {
-  margin-left: 37px;
-  padding-left: 20px;
-  border-left: 1px dashed rgba(232, 200, 150, 0.38);
-  color: var(--text-tertiary);
 }
 
 @media (min-width: 860px) {
@@ -471,7 +761,9 @@
     margin: 0;
   }
 
-  .route-intro,
+  .route-prefs,
+  .route-loading,
+  .route-result,
   .timeline,
   .route-page > .primary-button {
     width: min(1120px, calc(100% - 80px));
@@ -479,11 +771,12 @@
     margin-left: auto;
   }
 
-  .route-page > .primary-button {
-    position: static !important;
-    bottom: auto !important;
-    display: block;
-    max-width: 1120px;
+  .route-prefs {
+    margin-top: 48px;
+  }
+
+  .pref-grid {
+    grid-template-columns: 1fr 1fr 1fr;
   }
 
   .route-intro {
@@ -492,12 +785,7 @@
   }
 
   .route-card {
-    grid-template-columns: 96px minmax(0, 1fr);
-  }
-
-  .route-photo,
-  .route-photo img {
-    min-height: 360px;
+    grid-template-columns: 50px minmax(0, 1fr);
   }
 
   .photo-page .result-sheet {
@@ -514,6 +802,119 @@
   .photo-page .viewfinder svg {
     width: min(42vw, 520px);
   }
+
+  .photo-page .photo-actions {
+    right: 460px;
+    bottom: 100px;
+    left: 52px;
+  }
+}
+
+/* Landmarks page */
+.landmarks-page {
+  padding-bottom: 40px;
+}
+
+.landmarks-header {
+  padding: 28px 16px 12px;
+}
+
+.landmarks-header h1 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.landmarks-header p {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.landmarks-grid {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.landmark-card {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(236, 233, 226, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(28, 34, 38, 0.6);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.landmark-card:hover {
+  border-color: rgba(232, 200, 150, 0.3);
+  background: rgba(28, 34, 38, 0.82);
+}
+
+.landmark-icon {
+  font-size: 28px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: rgba(232, 200, 150, 0.08);
+}
+
+.landmark-info {
+  min-width: 0;
+}
+
+.landmark-info h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.landmark-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.landmark-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.landmark-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(236, 233, 226, 0.12);
+  color: var(--text-tertiary);
+  background: rgba(236, 233, 226, 0.04);
+}
+
+@media (min-width: 860px) {
+  .landmarks-header {
+    padding: 36px 40px 16px;
+  }
+
+  .landmarks-grid {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 0 40px;
+  }
 }
 
 @media (min-width: 1280px) {
@@ -524,5 +925,228 @@
   .tourist-home .conversation {
     padding-right: 48px;
     padding-left: 48px;
+  }
+}
+
+/* Markdown inside guide messages */
+/* Thinking indicator */
+.thinking-indicator .message-bubble {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+}
+
+.thinking-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.thinking-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-300);
+  animation: thinking-bounce 1.4s ease-in-out infinite;
+}
+
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes thinking-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
+
+.speak-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 8px;
+  padding: 0;
+  border: 1px solid rgba(236, 233, 226, 0.15);
+  border-radius: 50%;
+  background: rgba(236, 233, 226, 0.06);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.speak-button:hover {
+  background: rgba(232, 200, 150, 0.15);
+  border-color: var(--gold-light);
+  color: var(--gold-light);
+}
+
+.speak-button.speak-loading {
+  opacity: 0.5;
+  cursor: wait;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.speak-button.speak-playing {
+  background: rgba(232, 200, 150, 0.2);
+  border-color: var(--gold-light);
+  color: var(--gold-light);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.guide-markdown {
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.guide-markdown p {
+  margin: 0 0 8px;
+}
+
+.guide-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.guide-markdown strong {
+  color: var(--gold-light);
+  font-weight: 600;
+}
+
+.guide-markdown em {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.guide-markdown ol,
+.guide-markdown ul {
+  margin: 6px 0;
+  padding-left: 1.4em;
+}
+
+.guide-markdown li {
+  margin: 3px 0;
+}
+
+.guide-markdown ol li::marker {
+  color: var(--accent-300);
+}
+
+.guide-markdown ul li::marker {
+  color: var(--accent-300);
+}
+
+.guide-markdown h1,
+.guide-markdown h2,
+.guide-markdown h3,
+.guide-markdown h4 {
+  margin: 12px 0 6px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--text-primary);
+}
+
+.guide-markdown h1 { font-size: 1.3em; }
+.guide-markdown h2 { font-size: 1.15em; }
+.guide-markdown h3 { font-size: 1.05em; }
+
+.guide-markdown code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(236, 233, 226, 0.1);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.guide-markdown blockquote {
+  margin: 8px 0;
+  padding: 2px 12px;
+  border-left: 2px solid var(--accent-300);
+  color: var(--text-secondary);
+}
+
+.guide-markdown hr {
+  margin: 10px 0;
+  border: none;
+  border-top: 1px solid rgba(236, 233, 226, 0.12);
+}
+
+
+/* ============================================================
+ * Live2D 数字人容器 —— 嵌在 hero-stage 的 .guide-presence 气泡位内。
+ * 具体定位与尺寸由 .guide-presence 控制,这里只负责容器自身样式。
+ * ============================================================ */
+.live2d-mao-container {
+  position: relative;
+  pointer-events: auto;
+  /* 让画布内容对点击友好、但不抢走文本选择 */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  /* 透明背景,让 .guide-presence 的柔光背景透出 */
+  background: transparent;
+  /* 轻柔的阴影让角色与气泡底色区分 */
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.45));
+  /* 加载阶段留白,避免闪烁 */
+  transition: opacity 400ms ease;
+}
+
+.live2d-mao-container[data-status="loading"],
+.live2d-mao-container[data-status="idle"] {
+  opacity: 0.0;
+}
+
+.live2d-mao-container[data-status="ready"] {
+  opacity: 1;
+  animation: live2d-fade-in 500ms ease-out both;
+}
+
+.live2d-mao-container[data-status="error"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.live2d-mao-canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent;
+}
+
+.live2d-mao-error {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 8px 10px;
+  color: var(--text-secondary, #ECE9E2);
+  background: rgba(11, 14, 16, 0.85);
+  border: 1px solid rgba(236, 233, 226, 0.12);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+@keyframes live2d-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

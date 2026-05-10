@@ -52,7 +52,7 @@ def test_landmarks_seed_loads(client: TestClient, tourist_auth: dict[str, str]) 
     assert response.status_code == 200
     payload = response.json()
     assert len(payload["data"]["landmarks"]) >= 3
-    assert payload["data"]["landmarks"][0]["name"] == "月门听泉"
+    assert payload["data"]["landmarks"][0]["name"] == "南后街"
 
 
 def test_validation_error_is_uniform(client: TestClient, tourist_auth: dict[str, str]) -> None:
@@ -114,4 +114,4 @@ def test_websocket_subprotocol_bearer_auth(
         message = websocket.receive_json()
     assert message["code"] == "OK"
     assert message["data"]["session_id"] == session_id
-    assert "导览回声" in message["data"]["content"]
+    assert "榕巷知行" in message["data"]["content"]

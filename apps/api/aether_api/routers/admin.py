@@ -17,6 +17,7 @@ from aether_api.schemas.admin import (
     UploadDocumentRequest,
 )
 from aether_api.schemas.common import BaseResponse
+from aether_api.services.rag.indexer import RAGIndexer
 from aether_api.tracing import current_trace_id
 
 router = APIRouter(tags=["admin"], dependencies=[Depends(require_role("admin"))])
@@ -33,7 +34,9 @@ async def upload_document(
         source_uri=payload.source_uri,
         version=payload.version,
     )
-    return BaseResponse(data=document, trace_id=current_trace_id())
+    await RAGIndexer(repository).enqueue(document.id)
+    indexed = await repository.get_document(document.id)
+    return BaseResponse(data=indexed, trace_id=current_trace_id())
 
 
 @router.get("/documents/{document_id}/progress", response_model=BaseResponse[IndexProgressDTO])
@@ -100,4 +103,3 @@ async def label_turn(
 ) -> BaseResponse[TurnLabelDTO]:
     label = await repository.label_turn(turn_id)
     return BaseResponse(data=label, trace_id=current_trace_id())
-
