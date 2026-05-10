@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="apps/web-tourist/public/scenes/lake.png" width="120" alt="Aether Guide Logo">
+<img src="apps/已生成图像 1.png" width="120" alt="Aether Guide Logo">
 
 # Aether Guide
 
