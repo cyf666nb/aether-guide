@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +19,9 @@ class QdrantVectorStore:
     def __init__(self, url: str, api_key: str | None = None) -> None:
         self._url = url
         self._api_key = api_key
-        self._client = None
+        self._client: Any | None = None
 
-    def _get_client(self):
+    def _get_client(self) -> Any | None:
         if self._client is not None:
             return self._client
         try:
@@ -167,8 +169,6 @@ class QdrantVectorStore:
 
     def close(self) -> None:
         if self._client is not None:
-            try:
+            with suppress(Exception):
                 self._client.close()
-            except Exception:
-                pass
             self._client = None

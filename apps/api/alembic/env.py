@@ -1,13 +1,12 @@
 # SCORE-IMPACT: Controlled schema migrations and rollback readiness.
 from logging.config import fileConfig
 
+from aether_api.config import get_settings
+from aether_api.models import Base
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from aether_api.config import get_settings
-from aether_api.models import Base
 
 config = context.config
 if config.config_file_name is not None:

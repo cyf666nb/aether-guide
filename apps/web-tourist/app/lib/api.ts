@@ -61,6 +61,7 @@ export type RoutePreferences = {
   pace: string;
   group_type: string;
   duration_minutes: number;
+  custom_note?: string;
 };
 
 export class ApiError extends Error {

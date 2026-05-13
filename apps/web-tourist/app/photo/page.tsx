@@ -217,104 +217,106 @@ export default function PhotoPage() {
       <TrustBar mode={result?.status === "located" ? "online" : "visual"} />
       <VisitorNav />
 
-      {/* 取景器 */}
-      <section className="viewfinder" aria-label="拍照识景取景框">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            borderRadius: "12px",
-            display: cameraActive ? "block" : "none",
-          }}
-        />
-        {!cameraActive ? (
-          <div className="viewfinder-placeholder">
-            <p className="type-body">点击下方按钮开启相机后识别景点。</p>
-          </div>
-        ) : null}
-        <div className="scan-beam" />
-        <svg viewBox="0 0 320 320" className="viewfinder-frame">
-          <circle
-            cx="160"
-            cy="160"
-            r="112"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.25"
+      <div className="photo-body">
+        {/* Viewfinder */}
+        <section className="viewfinder" aria-label="拍照识景取景框">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`viewfinder-video ${cameraActive ? "active" : ""}`}
           />
-          <path
-            d="M80 56H52v42M240 56h28v42M80 264H52v-42M240 264h28v-42"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.25"
-            strokeLinecap="round"
-          />
-        </svg>
-      </section>
-
-      {/* 操作按钮 */}
-      <section className="photo-actions">
-        <button
-          className="primary-button"
-          onClick={primaryAction}
-          disabled={primaryDisabled}
-          type="button"
-        >
-          {primaryLabel}
-        </button>
-        <label className="thin-button upload-btn">
-          上传图片
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleUpload}
-            style={{ display: "none" }}
-          />
-        </label>
-      </section>
-
-      {error ? (
-        <section className="result-sheet" role="alert">
-          <p className="caption">提示</p>
-          <p className="type-body">{error}</p>
-        </section>
-      ) : null}
-
-      {result ? (
-        <section className="result-sheet">
-          <p className="caption">
-            {result.status === "located" ? "已识别" : "识别中 · VPS"}
-          </p>
-          {result.landmark_name ? (
-            <>
-              <h1 className="type-heading type-heading-2">
-                {result.landmark_name}
-              </h1>
-              <p className="type-body">
-                置信 {Math.round(result.confidence * 100)}%。{result.narration}
-              </p>
-              {result.follow_up ? (
-                <p
-                  className="type-body"
-                  style={{ marginTop: 8, color: "var(--gold-light)" }}
-                >
-                  {result.follow_up}
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <h1 className="type-heading type-heading-2">未识别到景点</h1>
-              <p className="type-body">{result.narration}</p>
-            </>
+          {!cameraActive && (
+            <div className="viewfinder-placeholder">
+              <div className="viewfinder-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none">
+                  <rect x="8" y="14" width="48" height="36" rx="6" stroke="currentColor" strokeWidth="1.5" />
+                  <circle cx="32" cy="32" r="10" stroke="currentColor" strokeWidth="1.5" />
+                  <circle cx="32" cy="32" r="4" fill="currentColor" opacity="0.5" />
+                  <rect x="26" y="8" width="12" height="6" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                </svg>
+              </div>
+              <p className="type-body">开启相机，对准古厝或街巷</p>
+              <p className="caption">AI 将自动识别景点并为你讲解</p>
+            </div>
           )}
+          {loading && (
+            <div className="viewfinder-scanning">
+              <span className="scanning-line" />
+              <p className="caption">正在识别…</p>
+            </div>
+          )}
+          {/* Corner brackets */}
+          <div className="viewfinder-corners" aria-hidden="true">
+            <span className="vc tl" />
+            <span className="vc tr" />
+            <span className="vc bl" />
+            <span className="vc br" />
+          </div>
         </section>
-      ) : null}
+
+        {/* Sidebar: capture button + upload + result */}
+        <div className="photo-side">
+          {/* Shutter-style capture button */}
+          <button
+            className="capture-btn"
+            onClick={primaryAction}
+            disabled={primaryDisabled}
+            type="button"
+            aria-label={primaryLabel}
+          >
+            <span className="capture-btn-ring">
+              <span className="capture-btn-inner" />
+            </span>
+            <span className="capture-btn-label">{primaryLabel}</span>
+          </button>
+
+          <label className="upload-link">
+            或上传图片
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleUpload}
+              style={{ display: "none" }}
+            />
+          </label>
+
+          {(error || result) && (
+            <section className={`photo-result ${result ? "has-data" : "is-error"}`}>
+              {error ? (
+                <>
+                  <p className="caption">提示</p>
+                  <p className="type-body">{error}</p>
+                </>
+              ) : result ? (
+                <>
+                  <p className="caption">
+                    {result.status === "located" ? "已识别景点" : "视觉定位中"}
+                  </p>
+                  {result.landmark_name ? (
+                    <>
+                      <h2 className="photo-result-name">{result.landmark_name}</h2>
+                      <p className="type-body">{result.narration}</p>
+                      <p className="photo-confidence">
+                        置信度 {Math.round(result.confidence * 100)}%
+                      </p>
+                      {result.follow_up && (
+                        <p className="photo-followup">{result.follow_up}</p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="photo-result-name">未识别到景点</h2>
+                      <p className="type-body">{result.narration}</p>
+                    </>
+                  )}
+                </>
+              ) : null}
+            </section>
+          )}
+        </div>
+      </div>
     </main>
   );
 }

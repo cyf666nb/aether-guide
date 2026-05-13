@@ -1,8 +1,8 @@
 # SCORE-IMPACT: Correct multi-instance rate limiting with safe degrade.
 """Redis-backed sliding-window rate limit middleware.
 
-- Sliding window implemented via sorted-set ops (ZREMRANGEBYSCORE + ZCARD +
-  ZADD + PEXPIRE) inside a pipeline for near-atomic semantics.
+- Sliding window implemented with a Redis Lua script for atomic semantics,
+  with a sorted-set fallback for test doubles that do not support EVAL.
 - Key: `rl:uid:<sub>:<METHOD>:<path>` when authenticated, else `rl:ip:<ip>:<METHOD>:<path>`.
 - On 429, populates `X-RateLimit-*` headers.
 - Health / auth / static endpoints are always exempt.
@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Awaitable, Callable
+from typing import cast
 
 import redis.asyncio as redis_asyncio
 from fastapi import Request, Response, status
@@ -35,6 +36,29 @@ _EXEMPT_PREFIXES = (
     "/api/v1/auth/",
     "/admin/v1/auth/",
 )
+
+_SLIDING_WINDOW_SCRIPT = """
+local key = KEYS[1]
+local now_ms = tonumber(ARGV[1])
+local window_ms = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+local member = ARGV[4]
+
+redis.call("ZREMRANGEBYSCORE", key, 0, now_ms - window_ms)
+local count = tonumber(redis.call("ZCARD", key))
+if count >= limit then
+    local oldest = redis.call("ZRANGE", key, 0, 0, "WITHSCORES")
+    local reset_at = now_ms + window_ms
+    if oldest[2] then
+        reset_at = tonumber(oldest[2]) + window_ms
+    end
+    return {0, count, reset_at}
+end
+
+redis.call("ZADD", key, now_ms, member)
+redis.call("PEXPIRE", key, window_ms)
+return {1, count + 1, now_ms + window_ms}
+"""
 
 
 def _is_exempt(path: str) -> bool:
@@ -82,6 +106,26 @@ class RedisSlidingWindowRateLimit(BaseHTTPMiddleware):
         ip = request.client.host if request.client else "unknown"
         return f"ip:{ip}"
 
+    async def _apply_sorted_set_window(
+        self,
+        client: redis_asyncio.Redis,
+        key: str,
+        member: str,
+        now_ms: int,
+    ) -> tuple[int, int, int]:
+        cutoff_ms = now_ms - self._window_ms
+        await client.zremrangebyscore(key, 0, cutoff_ms)
+        count = int(await client.zcard(key) or 0)
+        if count >= self._limit:
+            oldest = await client.zrange(key, 0, 0, withscores=True)
+            reset_at_ms = now_ms + self._window_ms
+            if oldest:
+                reset_at_ms = int(float(oldest[0][1])) + self._window_ms
+            return 0, count, reset_at_ms
+        await client.zadd(key, {member: now_ms})
+        await client.pexpire(key, self._window_ms)
+        return 1, count + 1, now_ms + self._window_ms
+
     async def dispatch(
         self,
         request: Request,
@@ -96,28 +140,41 @@ class RedisSlidingWindowRateLimit(BaseHTTPMiddleware):
             return await call_next(request)
 
         now_ms = int(time.time() * 1000)
-        cutoff_ms = now_ms - self._window_ms
         member = f"{now_ms}-{id(request)}"
         identity = self._identify(request)
         key = f"rl:{identity}:{request.method}:{request.url.path}"
 
         try:
-            # Check current count first.
-            await client.zremrangebyscore(key, 0, cutoff_ms)
-            count = int(await client.zcard(key) or 0)
-            if count >= self._limit:
-                oldest = await client.zrange(key, 0, 0, withscores=True)
-                reset_at_ms = now_ms + self._window_ms
-                if oldest:
-                    reset_at_ms = int(float(oldest[0][1])) + self._window_ms
-                return _blocked_response(self._limit, reset_at_ms, now_ms)
-            await client.zadd(key, {member: now_ms})
-            await client.pexpire(key, self._window_ms)
+            eval_result = cast(
+                Awaitable[list[object]],
+                client.eval(
+                    _SLIDING_WINDOW_SCRIPT,
+                    1,
+                    key,
+                    str(now_ms),
+                    str(self._window_ms),
+                    str(self._limit),
+                    member,
+                ),
+            )
+            raw_result = await eval_result
+            allowed, count, reset_at_ms = cast(list[int], raw_result)
         except RedisError as exc:  # pragma: no cover - network path
-            log.warning("rate-limit redis call failed: %s", exc)
-            return await call_next(request)
+            try:
+                allowed, count, reset_at_ms = await self._apply_sorted_set_window(
+                    client,
+                    key,
+                    member,
+                    now_ms,
+                )
+            except RedisError:
+                log.warning("rate-limit redis call failed: %s", exc)
+                return await call_next(request)
 
-        remaining = max(0, self._limit - count - 1)
+        if not allowed:
+            return _blocked_response(self._limit, reset_at_ms, now_ms)
+
+        remaining = max(0, self._limit - count)
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(self._limit)
         response.headers["X-RateLimit-Remaining"] = str(remaining)

@@ -29,4 +29,5 @@ class RouteRequest(BaseDTO):
     pace: str = Field(default="moderate", pattern="^(relaxed|moderate|active)$")
     group_type: str = Field(default="solo", pattern="^(solo|couple|family|friends|elder)$")
     duration_minutes: int = Field(default=120, ge=30, le=480)
+    custom_note: str = ""
 

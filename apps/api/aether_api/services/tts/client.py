@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import io
+import json
 import logging
 import struct
 from typing import TYPE_CHECKING
@@ -94,17 +96,24 @@ class TTSClient:
                     if data_str.strip() == "[DONE]":
                         break
                     try:
-                        import json
                         chunk = json.loads(data_str)
                         choices = chunk.get("choices", [])
                         if not choices:
                             continue
                         delta = choices[0].get("delta", {})
                         audio = delta.get("audio", {})
-                        if isinstance(audio, dict) and "data" in audio:
-                            pcm_bytes = base64.b64decode(audio["data"])
+                        audio_data = audio.get("data") if isinstance(audio, dict) else None
+                        if isinstance(audio_data, str):
+                            pcm_bytes = base64.b64decode(audio_data, validate=True)
                             pcm_chunks.append(pcm_bytes)
-                    except Exception:
+                    except (
+                        AttributeError,
+                        binascii.Error,
+                        json.JSONDecodeError,
+                        TypeError,
+                        ValueError,
+                    ) as exc:
+                        logger.debug("Skipping malformed TTS stream chunk: %s", exc)
                         continue
 
             if not pcm_chunks:
@@ -112,7 +121,12 @@ class TTSClient:
                 return None
 
             pcm_data = b"".join(pcm_chunks)
-            wav_bytes = self._pcm_to_wav(pcm_data, sample_rate=24000, channels=1, bits=16)
+            wav_bytes = self._pcm_to_wav(
+                pcm_data,
+                sample_rate=24000,
+                channels=1,
+                bits=16,
+            )
             return wav_bytes
         except Exception:
             logger.exception("TTS synthesis failed")
@@ -127,7 +141,12 @@ class TTSClient:
         return key.get_secret_value().strip() or None
 
     @staticmethod
-    def _pcm_to_wav(pcm_bytes: bytes, sample_rate: int = 24000, channels: int = 1, bits: int = 16) -> bytes:
+    def _pcm_to_wav(
+        pcm_bytes: bytes,
+        sample_rate: int = 24000,
+        channels: int = 1,
+        bits: int = 16,
+    ) -> bytes:
         """Convert raw PCM16 to WAV format."""
         byte_rate = sample_rate * channels * (bits // 8)
         block_align = channels * (bits // 8)

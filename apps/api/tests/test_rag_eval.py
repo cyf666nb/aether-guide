@@ -8,7 +8,6 @@ have to bisect probe-by-probe.
 from __future__ import annotations
 
 import pytest
-
 from aether_api.services.rag.evaluator import RAGEvaluator
 
 # Floor for the faithfulness score. 1.0 is what the seed ships with; pin

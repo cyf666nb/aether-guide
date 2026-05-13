@@ -10,7 +10,6 @@ The factory should:
 from __future__ import annotations
 
 import pytest
-
 from aether_api.config import Settings
 from aether_api.repository import create_repository
 

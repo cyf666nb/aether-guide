@@ -10,7 +10,6 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
-
 from aether_api.config import Settings
 from aether_api.errors import AppError, ErrorCode
 from aether_api.repository.inmemory import InMemoryRepository

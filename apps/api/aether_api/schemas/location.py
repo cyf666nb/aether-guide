@@ -47,6 +47,7 @@ class LocationResult(BaseDTO):
     status: str
     scenic_id: str
     landmark_id: str | None
+    landmark_name: str | None = None
     point: GeoPoint | None
     confidence: float
     follow_up: str | None = None
@@ -55,4 +56,3 @@ class LocationResult(BaseDTO):
 class ClearTrailRequest(BaseDTO):
     user_id: str
     scenic_id: str
-

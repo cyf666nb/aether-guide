@@ -4,7 +4,7 @@ from __future__ import annotations
 import json as _json
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from aether_api.schemas.recommendations import (
     RouteRecommendationDTO,
@@ -14,6 +14,7 @@ from aether_api.schemas.recommendations import (
 
 if TYPE_CHECKING:
     from aether_api.repository import Repository
+    from aether_api.schemas.landmarks import LandmarkDTO
     from aether_api.services.ai.client import AIClient
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,14 @@ _AGE_LABELS: dict[str, str] = {
 }
 
 
+class _CatalogLandmark(TypedDict):
+    id: str
+    name: str
+    summary: str
+    tags: list[str]
+    avg_duration_min: int
+
+
 class RoutePlanner:
     def __init__(self, repository: Repository) -> None:
         self._repository = repository
@@ -100,7 +109,7 @@ class RoutePlanner:
             selected = [lm for _, lm in scored[:15]]
         # Hard cap at 15 to keep the prompt small and fast.
         selected = selected[:15]
-        landmark_catalog = [
+        landmark_catalog: list[_CatalogLandmark] = [
             {
                 "id": lm.id,
                 "name": lm.name,
@@ -141,22 +150,34 @@ class RoutePlanner:
             logger.exception("AI route generation failed, using fallback")
             return self._fallback_route(profile, landmarks)
 
-    def _build_prompt(self, profile: RouteRequest, catalog: list[dict]) -> str:
+    def _build_prompt(self, profile: RouteRequest, catalog: list[_CatalogLandmark]) -> str:
         interests_str = "、".join(
             _INTEREST_LABELS.get(i, i) for i in profile.interests
         )
+        lines = [
+            "请为以下游客规划一条三坊七巷游览路线，输出严格 JSON 格式：\n",
+            "游客信息：",
+            f"- 性别：{_GENDER_LABELS.get(profile.gender, profile.gender)}",
+            f"- 年龄段：{_AGE_LABELS.get(profile.age_range, profile.age_range)}",
+            f"- 兴趣偏好：{interests_str}",
+            f"- 游览节奏：{_PACE_LABELS.get(profile.pace, profile.pace)}",
+            f"- 同行类型：{_GROUP_LABELS.get(profile.group_type, profile.group_type)}",
+            f"- 计划时长：约 {profile.duration_minutes} 分钟",
+        ]
+        if profile.custom_note.strip():
+            lines.append("")
+            lines.append(f"⚠️ 游客特别要求（必须严格遵守）：{profile.custom_note.strip()}")
+        lines.append("")
+        prompt = "\n".join(lines)
         return (
-            f"请为以下游客规划一条三坊七巷游览路线，输出严格 JSON 格式：\n\n"
-            f"游客信息：\n"
-            f"- 性别：{_GENDER_LABELS.get(profile.gender, profile.gender)}\n"
-            f"- 年龄段：{_AGE_LABELS.get(profile.age_range, profile.age_range)}\n"
-            f"- 兴趣偏好：{interests_str}\n"
-            f"- 游览节奏：{_PACE_LABELS.get(profile.pace, profile.pace)}\n"
-            f"- 同行类型：{_GROUP_LABELS.get(profile.group_type, profile.group_type)}\n"
-            f"- 计划时长：约 {profile.duration_minutes} 分钟\n\n"
-            f"可选景点（必须从中选择，使用对应的 id）：\n"
+            prompt
+            + "\n"
+            "可选景点（必须从中选择，使用对应的 id）：\n"
             + "\n".join(
-                f"- {lm['id']} | {lm['name']} | {','.join(lm['tags'][:3])} | ~{lm['avg_duration_min']}min"
+                (
+                    f"- {lm['id']} | {lm['name']} | "
+                    f"{','.join(lm['tags'][:3])} | ~{lm['avg_duration_min']}min"
+                )
                 for lm in catalog
             )
             + "\n\n"
@@ -166,13 +187,15 @@ class RoutePlanner:
             "3. 总时长尽量接近游客计划的时长\n"
             "4. 考虑游客的年龄和节奏来调整步行距离和景点数量\n"
             "5. 给每个站点写一句个性化推荐理由\n"
-            "6. 全家出游多选亲子友好景点和休息点，长者减少步行和台阶\n\n"
+            "6. 全家出游多选亲子友好景点和休息点，长者减少步行和台阶\n"
+            "7. 如果有游客特别要求，必须优先满足——游客不想去的坚决排除，"
+            "游客想去的必须包含，其他约束也必须遵守\n\n"
             '请输出 JSON（不要markdown代码块标记）：\n'
             '{"stops":[{"landmark_id":"...","name":"...","walk_minutes_from_previous":0,"reason":"...","duration_min":20,"highlight":"一句话亮点"},...]}'
         )
 
     def _parse_response(
-        self, content: str, landmarks: list
+        self, content: str, landmarks: list[LandmarkDTO]
     ) -> list[RouteStopDTO]:
         landmark_by_id = {lm.id: lm for lm in landmarks}
         # Strip markdown code fences if the model included them.
@@ -206,9 +229,15 @@ class RoutePlanner:
                 RouteStopDTO(
                     landmark_id=lid,
                     name=lm.name,
-                    walk_minutes_from_previous=max(0, int(stop.get("walk_minutes_from_previous", 0))),
+                    walk_minutes_from_previous=max(
+                        0,
+                        int(stop.get("walk_minutes_from_previous", 0)),
+                    ),
                     reason=str(stop.get("reason", lm.summary)),
-                    duration_min=max(5, int(stop.get("duration_min", lm.avg_duration_min or 15))),
+                    duration_min=max(
+                        5,
+                        int(stop.get("duration_min", lm.avg_duration_min or 15)),
+                    ),
                     highlight=str(stop.get("highlight", "")),
                 )
             )
@@ -224,7 +253,7 @@ class RoutePlanner:
         )
 
     def _fallback_route(
-        self, profile: RouteRequest, landmarks: list
+        self, profile: RouteRequest, landmarks: list[LandmarkDTO]
     ) -> RouteRecommendationDTO:
         preferred = [
             "nanhou-street",

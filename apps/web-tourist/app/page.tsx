@@ -33,7 +33,7 @@ const AmapView = dynamic(
   },
 );
 
-// Live2D Cubism "mao_pro" digital-human floats in the bottom-right corner.
+// Live2D Cubism "Haru Greeter" digital-human floats in the bottom-right corner.
 // Pulled in via next/dynamic with ssr:false because pixi.js + the Live2D
 // plugin touch `window`/`WebGLRenderingContext` at module-eval time.
 const Live2DMao = dynamic(() => import("./components/Live2DMao"), {
@@ -66,6 +66,33 @@ const PLACEHOLDERS = [
 ] as const;
 
 type ConnectionState = "connecting" | "online" | "offline" | "reconnecting";
+
+// Same curated set used by AmapView markers; keep it module-level so memo
+// dependencies stay primitive and the Set is not rebuilt on every render.
+const FEATURED_IDS = new Set([
+  "nanhou-street",
+  "nanhou-street-north-archway",
+  // 三坊 (three lanes, west side)
+  "yijin-lane",
+  "wenru-lane",
+  "guanglu-lane",
+  // 七巷 (seven alleys, east side)
+  "yangqiao-alley",
+  "langguan-alley",
+  "ta-alley",
+  "huang-alley",
+  "anmin-alley",
+  "gong-alley",
+  "jipi-alley",
+  // Featured residences & spots
+  "linjuemin-bingxin",
+  "yanfu-former-residence",
+  "shenbaozhen-former-residence",
+  "xiaohuanglou",
+  "shuixie-stage",
+  "heart-tree",
+  "fuzhou-intangible-heritage",
+]);
 
 const INITIAL_GREETING =
   "我会根据你在三坊七巷的位置，把名人故居、街巷动线和非遗体验串成一段顺路的游程。";
@@ -267,6 +294,12 @@ function TouristHome() {
     [landmarks],
   );
 
+  // Same curated set used by AmapView markers — only these ID'd landmarks
+  const mapLandmarks = useMemo(
+    () => landmarks.filter((lm) => lm.geo_point && FEATURED_IDS.has(lm.id)),
+    [landmarks],
+  );
+
   // ------------------- Streaming flush (rAF batched) -------------------
   const flushStreamingText = useCallback(() => {
     streamingFrameRef.current = null;
@@ -336,6 +369,10 @@ function TouristHome() {
               streamingTextRef.current += token;
               scheduleFlush();
             }
+            return;
+          }
+
+          if (payload.type === "stream_ack") {
             return;
           }
 
@@ -565,14 +602,56 @@ function TouristHome() {
 
   const canSend = input.trim().length > 0 && !isThinking;
 
-  // Skip current spot: cycle to the next landmark, giving "跳过" real meaning.
-  const handleSkip = useCallback(() => {
-    if (landmarks.length <= 1) return;
-    setCurrentSpotIndex((prev) => (prev + 1) % landmarks.length);
-  }, [landmarks.length]);
+  // --- Landmark carousel ------------------------------------------------
+  const currentLandmark =
+    mapLandmarks[currentSpotIndex] ?? mapLandmarks[0] ?? null;
 
-  const spot =
-    landmarks[currentSpotIndex]?.name ?? landmarks[0]?.name ?? "南后街";
+  const goToSpot = useCallback(
+    (index: number) => {
+      if (mapLandmarks.length <= 1) return;
+      setCurrentSpotIndex(((index % mapLandmarks.length) + mapLandmarks.length) % mapLandmarks.length);
+    },
+    [mapLandmarks.length],
+  );
+
+  const handlePrevSpot = useCallback(
+    () => goToSpot(currentSpotIndex - 1),
+    [currentSpotIndex, goToSpot],
+  );
+  const handleNextSpot = useCallback(
+    () => goToSpot(currentSpotIndex + 1),
+    [currentSpotIndex, goToSpot],
+  );
+
+  // Trigger AI narration about the currently selected landmark.
+  const handleNarrate = useCallback(() => {
+    const lm = currentLandmark;
+    if (!lm || isThinking) return;
+    const text = `介绍一下${lm.name}`;
+    setMessages((current) => [
+      ...current,
+      mkMessage({ speaker: "你", text, role: "user" }),
+    ]);
+    setIsThinking(true);
+    const socket = socketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "user_text", text, locale: "zh-CN" }));
+    } else {
+      setIsThinking(false);
+      setMessages((current) => [
+        ...current,
+        mkMessage({
+          speaker: "知行",
+          text: `当前使用本地知识库演示模式。${lm.name}是三坊七巷的重要景点，承载着丰富的历史故事。`,
+          role: "guide",
+          citations: ["fallback:local"],
+        }),
+      ]);
+    }
+  }, [currentLandmark, isThinking, mkMessage]);
+
+  // Keep the old name-based spot variable for any remaining references.
+  const spot = currentLandmark?.name ?? "南后街";
 
   const trustMode: "online" | "visual" | "offline" =
     connection === "online"
@@ -586,31 +665,112 @@ function TouristHome() {
       <TrustBar mode={trustMode} state={connection} />
       <VisitorNav />
       <section className="hero-stage">
-        <AmapView landmarks={landmarks} />
+        <AmapView
+          landmarks={landmarks}
+          onMarkerClick={(landmarkId: string) => {
+            const idx = mapLandmarks.findIndex((lm) => lm.id === landmarkId);
+            if (idx !== -1) setCurrentSpotIndex(idx);
+          }}
+        />
         <div className="guide-presence" aria-label="数字人导览助手">
           {/*
-            Live2D "Mao Pro" 直接落在地图预留的数字人位里(右下角气泡位),
+            Live2D "Haru Greeter" 直接落在地图预留的数字人位里(右下角气泡位),
             视觉上与景区地图绑定。尺寸由 .guide-presence 的 CSS 控制
             (width: min(34vw, 220px), aspect-ratio: 0.72)。
             Live2DMao 不传 width/height 时会自动 100% 填满父容器。
           */}
           <Live2DMao audioElementRef={audioElementRef} />
         </div>
-        <div className="current-spot">
-          <div>
-            <p className="caption">当前讲解</p>
-            <strong>{spot}</strong>
+        {currentLandmark && (
+          <div className="spot-carousel" aria-label="景点轮播">
+            {/* Nav arrow — previous */}
+            <button
+              className="spot-carousel-arrow"
+              type="button"
+              onClick={handlePrevSpot}
+              disabled={mapLandmarks.length <= 1}
+              aria-label="上一个景点"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M15 4L7 12L15 20"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+
+            {/* Card body */}
+            <div className="spot-carousel-card">
+              <div className="spot-carousel-head">
+                <h2 className="spot-carousel-name">{spot}</h2>
+                <span className="spot-carousel-index">
+                  {currentSpotIndex + 1}/{mapLandmarks.length}
+                </span>
+              </div>
+              {currentLandmark.tags.length > 0 && (
+                <div className="spot-carousel-tags">
+                  {currentLandmark.tags.slice(0, 4).map((tag) => (
+                    <span key={tag} className="spot-tag">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {currentLandmark.summary && (
+                <p className="spot-carousel-summary">
+                  {currentLandmark.summary.length > 60
+                    ? currentLandmark.summary.slice(0, 60) + "…"
+                    : currentLandmark.summary}
+                </p>
+              )}
+              <button
+                className="thin-button spot-narrate-btn"
+                type="button"
+                onClick={handleNarrate}
+                disabled={isThinking}
+              >
+                {isThinking ? "正在讲解…" : `听${spot}的讲解`}
+              </button>
+            </div>
+
+            {/* Nav arrow — next */}
+            <button
+              className="spot-carousel-arrow"
+              type="button"
+              onClick={handleNextSpot}
+              disabled={mapLandmarks.length <= 1}
+              aria-label="下一个景点"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M9 4L17 12L9 20"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
           </div>
-          <button
-            className="thin-button"
-            type="button"
-            onClick={handleSkip}
-            aria-label="跳过当前讲解，切换到下一个景点"
-            disabled={landmarks.length <= 1}
-          >
-            跳过
-          </button>
-        </div>
+        )}
+
+        {/* Dot indicators */}
+        {mapLandmarks.length > 1 && (
+          <div className="spot-carousel-dots" aria-hidden="true">
+            {mapLandmarks.map((_, i) => (
+              <button
+                key={i}
+                className={`spot-dot ${i === currentSpotIndex ? "active" : ""}`}
+                type="button"
+                onClick={() => goToSpot(i)}
+                aria-label={`切换到${mapLandmarks[i]?.name ?? ""}`}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       {connection === "reconnecting" ? (

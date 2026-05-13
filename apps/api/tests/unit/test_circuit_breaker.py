@@ -9,7 +9,6 @@ so a refactor can't quietly change the failure-mode contract.
 from __future__ import annotations
 
 import pytest
-
 from aether_api.errors import AppError, ErrorCode
 from aether_api.services.ai.client import CircuitBreaker
 

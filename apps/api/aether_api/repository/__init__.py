@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol, cast
 
 from aether_api.config import Settings
 from aether_api.schemas.admin import (
@@ -164,6 +164,17 @@ class Repository(Protocol):
     ) -> AuditLogPage: ...
 
 
+def _set_backend_metadata(
+    repository: Repository,
+    name: str,
+    fallback_reason: str | None = None,
+) -> None:
+    metadata_target = cast(Any, repository)
+    metadata_target.backend_name = name
+    if fallback_reason is not None:
+        metadata_target.backend_fallback_reason = fallback_reason
+
+
 async def create_repository(settings: Settings) -> Repository:
     """Factory: pick the backend implementation by settings.storage_mode.
 
@@ -185,9 +196,7 @@ async def create_repository(settings: Settings) -> Repository:
 
         repo: Repository = InMemoryRepository(settings)
         await repo.load_seed()
-        # Stamp the backend so /healthz can report it. Using setattr keeps
-        # the Protocol clean (no extra required attribute).
-        setattr(repo, "backend_name", "inmemory")
+        _set_backend_metadata(repo, "inmemory")
         return repo
 
     if settings.storage_mode == "database":
@@ -214,11 +223,14 @@ async def create_repository(settings: Settings) -> Repository:
 
             fallback: Repository = InMemoryRepository(settings)
             await fallback.load_seed()
-            setattr(fallback, "backend_name", "inmemory-fallback")
-            setattr(fallback, "backend_fallback_reason", f"{type(exc).__name__}: {exc}")
+            _set_backend_metadata(
+                fallback,
+                "inmemory-fallback",
+                f"{type(exc).__name__}: {exc}",
+            )
             return fallback
 
-        setattr(sql_repo, "backend_name", "database")
+        _set_backend_metadata(sql_repo, "database")
         return sql_repo
 
     raise ValueError(f"Unknown storage_mode: {settings.storage_mode}")

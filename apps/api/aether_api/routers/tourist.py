@@ -63,14 +63,17 @@ async def identify_photo(
         image_base64=payload.image_base64,
         gps_hint=payload.gps_hint,
     )
-    landmark_name = None
+    landmark_name = result.landmark_name
     if result.landmark_id:
         landmarks = await repository.list_landmarks(payload.scenic_id)
-        landmark_name = next(
+        landmark_name = landmark_name or next(
             (landmark.name for landmark in landmarks if landmark.id == result.landmark_id),
             None,
         )
-    narration = result.follow_up or "已识别到景点"
+    if result.status == "located" and landmark_name:
+        narration = f"已识别到：{landmark_name}"
+    else:
+        narration = result.follow_up or "未能确定景点位置，请拍摄更清晰的牌匾、巷名或建筑正面。"
     response = PhotoSceneResponse(
         status=result.status,
         landmark_id=result.landmark_id,
@@ -168,6 +171,18 @@ async def stream_session(
             set_trace_id(new_trace_id())
             raw_message = await websocket.receive_json()
             message = StreamMessage.model_validate(raw_message)
+            await websocket.send_json(
+                {
+                    "type": "stream_ack",
+                    "trace_id": current_trace_id(),
+                    "data": {
+                        "session_id": session.id,
+                        "content": "榕巷知行已收到请求",
+                    },
+                    "code": "OK",
+                    "message": "ok",
+                }
+            )
             retrieved = await RAGRetriever(
                 repository,
                 vectorstore=vectorstore,
@@ -197,7 +212,13 @@ async def stream_session(
                 await websocket.send_json(
                     {
                         "type": "stream_chunk",
-                        "data": {"content": token},
+                        "trace_id": current_trace_id(),
+                        "data": {
+                            "session_id": session.id,
+                            "content": token,
+                        },
+                        "code": "OK",
+                        "message": "ok",
                     }
                 )
             assistant = AssistantMessage(

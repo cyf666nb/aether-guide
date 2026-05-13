@@ -3,8 +3,8 @@
 /**
  * Live2DMao
  * ---------
- * 在游客端角落浮窗中渲染 Live2D Cubism 5 "Mao Pro" 数字人模型,
- * 并把页面共享的 TTS <audio> 元素的实时音量映射到模型的 LipSync 参数 (ParamA)。
+ * 在游客端角落浮窗中渲染 Live2D Cubism "Haru Greeter" 数字人模型,
+ * 并把页面共享的 TTS <audio> 元素的实时音量映射到模型的 LipSync 参数 (ParamMouthOpenY)。
  *
  * 运行时依赖(都通过 dynamic import 延迟到客户端加载):
  *   - pixi.js@^7
@@ -13,7 +13,7 @@
  *     strategy="beforeInteractive"> 预注入到 <head>)
  *
  * 模型资源:
- *   - /live2d/mao_pro/mao_pro.model3.json
+ *   - /live2d/haru_greeter/haru_greeter_t05.model3.json
  *
  * 设计要点:
  *   - 组件不做 SSR。调用方应使用
@@ -22,7 +22,7 @@
  *     `model.x = cw/2; model.y = ch` 即可"贴底居中"而不会溢出。
  *   - TTS 嘴型同步:不重复播放音频,只监听页面共享 <audio> 的波形。
  *     通过 AudioContext + MediaElementAudioSourceNode + AnalyserNode 取 RMS,
- *     在 pixi Ticker 最低优先级(晚于模型自身 update)里写入 ParamA。
+ *     在 pixi Ticker 最低优先级(晚于模型自身 update)里写入 ParamMouthOpenY。
  *   - AudioContext / MediaElementSource 对同一 audio 只能 create 一次,所以
  *     我们用 Symbol 在 globalThis / audio 元素上缓存,React StrictMode 或
  *     HMR 重复挂载时复用,不再重建。
@@ -100,7 +100,7 @@ function getOrCreateSource(
 }
 
 export default function Live2DMao({
-  modelUrl = "/live2d/mao_pro/mao_pro.model3.json",
+  modelUrl = "/live2d/haru_greeter/haru_greeter_t05.model3.json",
   width,
   height,
   className,
@@ -127,6 +127,7 @@ export default function Live2DMao({
       analyser: AnalyserNode | null;
       dataArray: Uint8Array<ArrayBuffer> | null;
       tickerFn: (() => void) | null;
+      idleTimer: ReturnType<typeof setInterval> | null;
     } = {
       app: null,
       model: null,
@@ -135,6 +136,7 @@ export default function Live2DMao({
       analyser: null,
       dataArray: null,
       tickerFn: null,
+      idleTimer: null,
     };
 
     setStatus("loading");
@@ -168,7 +170,7 @@ export default function Live2DMao({
 
         // --- Canvas + PIXI Application ------------------------------------
         const canvas = document.createElement("canvas");
-        canvas.className = "live2d-mao-canvas";
+        canvas.className = "live2d-guide-canvas";
         container.appendChild(canvas);
         handles.canvas = canvas;
 
@@ -235,17 +237,63 @@ export default function Live2DMao({
         ro.observe(container);
         handles.resizeObserver = ro;
 
-        // --- Pointer interactions -----------------------------------------
+        // --- Idle motion cycle -------------------------------------------
+        // All 27 motions in the Haru Greeter model have "Loop": true in
+        // their .motion3.json metadata, which means they'll play forever
+        // and never emit motionFinish. The built-in idle chain can't work
+        // under these conditions. We use a simple interval timer to force
+        // a random motion every IDLE_INTERVAL ms instead.
+        let lastTapTime = 0;
+        const IDLE_INTERVAL = 10000;
+
+        // Total motion count in group "" — derived from model3.json.
+        const motionCount =
+          (model as AnyObj).internalModel?.motionManager?.definitions?.[""]
+            ?.length ?? 0;
+
+        const cycleMotion = () => {
+          if (disposed) return;
+          try {
+            // Skip index 0 (haru_g_idle — the static arms-crossed looping
+            // pose). Indices 1..N are the actual varied performances.
+            const idx =
+              motionCount > 1
+                ? 1 + Math.floor(Math.random() * (motionCount - 1))
+                : undefined;
+            (model as AnyObj).motion?.("", idx, 3);
+          } catch {
+            /* noop */
+          }
+        };
+
+        handles.idleTimer = setInterval(() => {
+          // Don't interrupt a recently tapped motion — give it at least
+          // 3 seconds to play before the timer takes over again.
+          if (performance.now() - lastTapTime > 8000) {
+            cycleMotion();
+          }
+        }, IDLE_INTERVAL);
+
+        // Play the first motion immediately instead of waiting for the
+        // first interval tick.
+        cycleMotion();
+
+        // --- Pointer interactions — tap triggers a FORCE-priority motion
         (model as AnyObj).on("hit", () => {
-          queueMicrotask(() => {
+          lastTapTime = performance.now();
+          try {
             const m = model as AnyObj;
-            try {
-              if (typeof m.motion === "function") m.motion("");
-              if (typeof m.expression === "function") m.expression();
-            } catch (e) {
-              console.warn("[Live2DMao] motion/expression trigger failed", e);
+            if (typeof m.motion === "function") {
+              const idx =
+                motionCount > 1
+                  ? 1 + Math.floor(Math.random() * (motionCount - 1))
+                  : undefined;
+              m.motion("", idx, 3);
             }
-          });
+            if (typeof m.expression === "function") m.expression();
+          } catch (e) {
+            console.warn("[Live2DMao] hit trigger failed", e);
+          }
           onTapHead?.();
           onTapBody?.();
         });
@@ -302,7 +350,7 @@ export default function Live2DMao({
                 const playing =
                   audio && !audio.paused && !audio.ended && audio.currentTime > 0;
                 if (!playing) {
-                  coreModel.setParameterValueById("ParamA", 0);
+                  coreModel.setParameterValueById("ParamMouthOpenY", 0);
                   return;
                 }
 
@@ -315,11 +363,11 @@ export default function Live2DMao({
                   sum += v * v;
                 }
                 const rms = Math.sqrt(sum / n);
-                // Map RMS [0, ~0.25] -> ParamA [0, 1]. Apply a small gate to
-                // avoid jitter from ambient noise / silence artifacts.
+                // Map RMS [0, ~0.25] -> ParamMouthOpenY [0, 1]. Apply a small
+                // gate to avoid jitter from ambient noise / silence artifacts.
                 const gated = rms < 0.02 ? 0 : rms;
                 const value = Math.max(0, Math.min(1, gated * 4));
-                coreModel.setParameterValueById("ParamA", value);
+                coreModel.setParameterValueById("ParamMouthOpenY", value);
               };
               handles.tickerFn = tickerFn;
               // UPDATE_PRIORITY.LOW = -25 in PIXI 7
@@ -340,6 +388,10 @@ export default function Live2DMao({
 
     return () => {
       disposed = true;
+      if (handles.idleTimer !== null) {
+        clearInterval(handles.idleTimer);
+        handles.idleTimer = null;
+      }
       try {
         handles.resizeObserver?.disconnect();
       } catch {
@@ -386,7 +438,7 @@ export default function Live2DMao({
   return (
     <div
       ref={containerRef}
-      className={className ?? "live2d-mao-container"}
+      className={className ?? "live2d-guide-container"}
       style={
         width !== undefined && height !== undefined
           ? { width, height }
@@ -398,7 +450,7 @@ export default function Live2DMao({
       aria-label="Live2D 数字人导览助手"
     >
       {status === "error" ? (
-        <div className="live2d-mao-error" role="alert">
+        <div className="live2d-guide-error" role="alert">
           数字人加载失败
           <br />
           <span style={{ fontSize: 10, opacity: 0.7 }}>{error}</span>

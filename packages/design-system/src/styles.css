@@ -213,36 +213,76 @@ img {
 }
 
 .thin-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--line-soft);
-  color: var(--text-primary);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
   background: transparent;
   min-height: 36px;
-  padding: 0 14px;
+  padding: 0 18px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
   transition:
     border-color var(--dur-base) var(--ease-glide),
     color var(--dur-base) var(--ease-glide),
-    background-color var(--dur-base) var(--ease-glide);
+    background-color var(--dur-base) var(--ease-glide),
+    box-shadow var(--dur-base) var(--ease-glide);
 }
 
 .thin-button:hover {
-  border-color: var(--accent-500);
-  color: var(--accent-300);
+  border-color: var(--gold-light);
+  color: var(--gold-light);
+  background: rgba(232, 200, 150, 0.06);
+  box-shadow: 0 0 16px rgba(232, 200, 150, 0.08);
 }
 
 .primary-button {
-  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
   border: 1px solid var(--accent-500);
+  border-radius: var(--radius-pill);
   color: var(--surface-base);
   background: var(--accent-500);
-  padding: 0 18px;
+  padding: 0 24px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
   transition:
     transform var(--dur-fast) var(--ease-spring),
-    background-color var(--dur-reveal) var(--ease-glide);
+    background-color var(--dur-base) var(--ease-glide),
+    border-color var(--dur-base) var(--ease-glide),
+    box-shadow var(--dur-base) var(--ease-glide);
 }
 
 .primary-button:hover {
   transform: translateY(-1px);
   background: var(--accent-300);
+  border-color: var(--accent-300);
+  box-shadow: 0 4px 20px rgba(136, 163, 125, 0.25);
+}
+
+.primary-button:active {
+  transform: translateY(0);
+}
+
+.primary-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.primary-button:disabled:hover {
+  background: var(--accent-500);
+  border-color: var(--accent-500);
+  box-shadow: none;
 }
 
 /* Keyboard-first focus ring — WCAG 2.4.7 / 2.1.1.
@@ -258,8 +298,8 @@ img {
    affordance so we reuse the color variable but drop the rectangular outline. */
 .field-line:focus-visible {
   outline: none;
-  border-bottom-color: var(--accent-300);
-  box-shadow: 0 1px 0 var(--accent-300);
+  border-bottom-color: var(--gold-light);
+  box-shadow: 0 1px 0 var(--gold-light);
 }
 
 /* Respect the user's motion preferences. Decorative loops (breath, scan,
@@ -283,10 +323,21 @@ img {
   outline: 0;
   color: var(--text-primary);
   background: transparent;
+  padding: 10px 2px;
+  font-size: 15px;
+  transition:
+    border-color var(--dur-base) var(--ease-glide),
+    box-shadow var(--dur-base) var(--ease-glide);
+}
+
+.field-line::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.7;
 }
 
 .field-line:focus {
-  border-bottom-color: var(--accent-300);
+  border-bottom-color: var(--gold-light);
+  box-shadow: 0 1px 0 0 var(--gold-light);
 }
 
 .panel-line {

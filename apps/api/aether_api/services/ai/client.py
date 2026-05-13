@@ -286,8 +286,8 @@ class AIClient:
         api_key = self._anthropic_api_key()
         model = self._settings.anthropic_model.strip()
         if not model:
-            response = await self.generate_reply(request)
-            yield response.content
+            fallback_response = await self.generate_reply(request)
+            yield fallback_response.content
             return
 
         payload: dict[str, object] = {
@@ -323,7 +323,10 @@ class AIClient:
 
     async def _openai_answer(self, request: AIRequest, start: float) -> AIResponse:
         api_key = self._openai_api_key()
-        model = self._settings.anthropic_model.strip() or self._settings.openai_base_url.split("/")[-1]
+        model = (
+            self._settings.anthropic_model.strip()
+            or self._settings.openai_base_url.split("/")[-1]
+        )
         base_url = self._settings.openai_base_url.rstrip("/")
         url = f"{base_url}/chat/completions"
 

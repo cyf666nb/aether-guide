@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aether_api.services.rag.text import hashed_embedding
 
@@ -10,11 +10,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_model = None
+_model: Any | None = None
 _model_name: str | None = None
 
 
-def _get_model(model_name: str, use_gpu: bool):
+def _get_model(model_name: str, use_gpu: bool) -> Any | None:
     global _model, _model_name
     if _model is not None and _model_name == model_name:
         return _model

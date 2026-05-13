@@ -35,9 +35,15 @@ class EvalSummary:
 # in any checkout (e.g. tarball deploys without test fixtures).
 _BUILTIN_PROBES: list[dict[str, object]] = [
     {"query": "lane food shopping", "expected_source": "landmark:nanhou-street"},
-    {"query": "bingxin literature former residence", "expected_source": "landmark:linjuemin-bingxin"},
+    {
+        "query": "bingxin literature former residence",
+        "expected_source": "landmark:linjuemin-bingxin",
+    },
     {"query": "translation education yan fu", "expected_source": "landmark:yanfu-former-residence"},
-    {"query": "shipbuilding modernization navy", "expected_source": "landmark:shenbaozhen-former-residence"},
+    {
+        "query": "shipbuilding modernization navy",
+        "expected_source": "landmark:shenbaozhen-former-residence",
+    },
     {"query": "performance night minju heritage", "expected_source": "landmark:shuixie-stage"},
     {"query": "附近有什么好吃的", "expected_source": "landmark:nanhou-street"},
     {"query": "第一次来三坊七巷，先从哪里开始逛？", "expected_source": "landmark:nanhou-street"},
@@ -105,10 +111,12 @@ class RAGEvaluator:
         for probe in probes:
             query = str(probe["query"])
             expected: list[str] = []
-            if isinstance(probe.get("expected_any"), list):
-                expected = [str(s) for s in probe["expected_any"] if isinstance(s, str)]
-            elif isinstance(probe.get("expected_source"), str):
-                expected = [str(probe["expected_source"])]
+            expected_any = probe.get("expected_any")
+            expected_source = probe.get("expected_source")
+            if isinstance(expected_any, list):
+                expected = [str(s) for s in expected_any if isinstance(s, str)]
+            elif isinstance(expected_source, str):
+                expected = [expected_source]
             top_k_value = probe.get("top_k", 3)
             top_k = int(top_k_value) if isinstance(top_k_value, (int, float, str)) else 3
             tag = str(probe.get("tag", "")) if isinstance(probe.get("tag"), str) else ""
@@ -126,7 +134,13 @@ class RAGEvaluator:
                 for exp in expected
             )
             results.append(
-                ProbeResult(query=query, expected=expected, passed=passed, actual=actual, tag=tag)
+                ProbeResult(
+                    query=query,
+                    expected=expected,
+                    passed=passed,
+                    actual=actual,
+                    tag=tag,
+                )
             )
 
         total = len(results)

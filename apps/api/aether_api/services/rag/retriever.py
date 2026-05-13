@@ -6,6 +6,7 @@ import logging
 import time
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from aether_api.repository import Repository
 from aether_api.schemas.landmarks import LandmarkDTO
@@ -19,6 +20,10 @@ from aether_api.services.rag.text import (
     tokenize,
 )
 
+if TYPE_CHECKING:
+    from aether_api.services.rag.embedding import BGEEmbedding
+    from aether_api.services.rag.vectorstore import QdrantVectorStore
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -31,6 +36,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _CACHE_TTL_SECONDS = 60.0
+_CACHE_MAX_SCENIC_AREAS = 128
 _candidate_cache: dict[str, tuple[float, dict[str, KnowledgeChunkDTO]]] = {}
 _candidate_cache_lock = asyncio.Lock()
 
@@ -46,6 +52,22 @@ def invalidate_candidate_cache(scenic_id: str | None = None) -> None:
     _candidate_cache.pop(scenic_id, None)
 
 
+def _prune_candidate_cache(now: float) -> None:
+    expired = [
+        scenic_id
+        for scenic_id, (created_at, _) in _candidate_cache.items()
+        if now - created_at >= _CACHE_TTL_SECONDS
+    ]
+    for scenic_id in expired:
+        _candidate_cache.pop(scenic_id, None)
+    overflow = len(_candidate_cache) - _CACHE_MAX_SCENIC_AREAS
+    if overflow <= 0:
+        return
+    oldest = sorted(_candidate_cache.items(), key=lambda item: item[1][0])
+    for scenic_id, _ in oldest[:overflow]:
+        _candidate_cache.pop(scenic_id, None)
+
+
 async def _get_chunk_map(
     repository: Repository, scenic_id: str
 ) -> dict[str, KnowledgeChunkDTO]:
@@ -57,6 +79,7 @@ async def _get_chunk_map(
         cached = _candidate_cache.get(scenic_id)
         if cached is not None and time.monotonic() - cached[0] < _CACHE_TTL_SECONDS:
             return cached[1]
+        _prune_candidate_cache(time.monotonic())
         chunks = await repository.list_knowledge_chunks(scenic_id)
         landmarks = await repository.list_landmarks(scenic_id)
         landmark_chunks = [
@@ -244,8 +267,8 @@ class RAGRetriever:
         *,
         default_top_k: int = 4,
         min_score: float = 0.05,
-        vectorstore: "QdrantVectorStore | None" = None,
-        embedding: "BGEEmbedding | None" = None,
+        vectorstore: QdrantVectorStore | None = None,
+        embedding: BGEEmbedding | None = None,
     ) -> None:
         self._repository = repository
         self._default_top_k = default_top_k
@@ -346,10 +369,13 @@ class RAGRetriever:
         query_embedding: list[float] | None = None,
     ) -> list[KnowledgeChunkDTO]:
         query_vec = query_embedding or await self._encode_query_async(query)
+        vectorstore = self._vectorstore
+        if vectorstore is None:
+            return await self._candidate_chunks(scenic_id)
         # qdrant-client uses synchronous HTTP; run it off the event loop so
         # it doesn't block other requests during the search round-trip.
         results = await asyncio.to_thread(
-            self._vectorstore.search,
+            vectorstore.search,
             scenic_id,
             query_vec,
             max(limit * 5, 20),
@@ -389,7 +415,9 @@ class RAGRetriever:
             candidates.append(
                 KnowledgeChunkDTO(
                     id=result.chunk_id,
-                    document_id=document_id if isinstance(document_id, str) and document_id else None,
+                    document_id=document_id
+                    if isinstance(document_id, str) and document_id
+                    else None,
                     scenic_id=scenic_id,
                     source_id=source_id,
                     text=text,

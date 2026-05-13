@@ -14,7 +14,7 @@ from aether_api.errors import ErrorCode, error_response, register_exception_hand
 from aether_api.middleware.audit import AuditMiddleware
 from aether_api.middleware.rate_limit_redis import RedisSlidingWindowRateLimit
 from aether_api.middleware.trace import TraceMiddleware
-from aether_api.repository import create_repository
+from aether_api.repository import Repository, create_repository
 from aether_api.routers import (
     admin,
     audit,
@@ -100,8 +100,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await app.state.ai_client.aclose()
+        from aether_api.services.location.vps import (
+            aclose_shared_client as _aclose_vlm,
+        )
         from aether_api.services.tts.client import aclose_shared_client as _aclose_tts
 
+        await _aclose_vlm()
         await _aclose_tts()
         if vectorstore is not None:
             vectorstore.close()
@@ -111,10 +115,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 async def _seed_qdrant(
-    repository,
+    repository: Repository,
     vectorstore: QdrantVectorStore,
     embedding: BGEEmbedding,
-    settings,
+    settings: Settings,
 ) -> None:
     import logging
 

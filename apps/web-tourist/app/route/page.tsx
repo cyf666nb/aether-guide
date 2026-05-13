@@ -3,7 +3,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { TrustBar, VisitorNav } from "../components/VisitorChrome";
-import { getRoute, type RoutePlan, type RoutePreferences } from "../lib/api";
+import { getRoute, type RoutePreferences } from "../lib/api";
 
 const INTEREST_OPTIONS = [
   { key: "history", label: "历史人文" },
@@ -54,6 +54,7 @@ export default function RoutePage() {
     pace: "moderate",
     group_type: "solo",
     duration_minutes: 120,
+    custom_note: "",
   });
 
   const toggleInterest = (key: string) => {
@@ -77,7 +78,7 @@ export default function RoutePage() {
 
   return (
     <main className="tourist-frame route-page">
-      <TrustBar mode={route ? "online" : "offline"} />
+      <TrustBar mode="online" />
       <VisitorNav />
 
       {/* Preference form */}
@@ -196,6 +197,18 @@ export default function RoutePage() {
             </div>
           </fieldset>
         </div>
+
+        {/* Custom note — free-text requirements */}
+        <fieldset className="pref-group pref-group-full">
+          <legend>自定义要求（选填）</legend>
+          <textarea
+            className="custom-note-input"
+            value={prefs.custom_note ?? ""}
+            onChange={(e) => setPrefs((p) => ({ ...p, custom_note: e.target.value }))}
+            placeholder="例如：不想去林觉民故居、想在文儒坊多停留、带老人腿脚不便请少安排台阶路线…"
+            rows={3}
+          />
+        </fieldset>
 
         <button
           className="primary-button route-generate-btn"
