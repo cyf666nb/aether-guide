@@ -11,6 +11,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![AMap](https://img.shields.io/badge/AMap-JSAPI%20v2.0-0685D4)](https://lbs.amap.com/)
 [![Live2D](https://img.shields.io/badge/Live2D-Cubism%205-FF6F00)](https://www.live2d.com/)
 [![License](https://img.shields.io/badge/License-Private-red)](#license)
 
@@ -34,9 +35,10 @@ Aether Guide 是一套面向景区的 **AI 数字人智慧导览系统**，采�
 
 ### 游客端
 
-- **AI 数字人 (Live2D)** — Cubism 5 "Mao Pro" 角色浮窗,眼动跟随鼠标 / 点击触发表情与动作,叠加 LLM 流式对话(SSE)
-- **智能导览** — 景点推荐、路线规划、语音讲解
-- **拍照识景** — 上传照片自动识别景点
+- **AI 数字人 (Live2D)** — Cubism 5 "Haru Greeter" 角色浮窗，眼动跟随鼠标 / 点击触发表情与动作，叠加 LLM 流式对话 (WebSocket)
+- **高德地图** — AMap JSAPI v2.0 深色风格地图，景点标记 + POI 搜索
+- **智能导览** — 景点轮播、路线规划、AI 语音讲解 (TTS)
+- **拍照识景** — 上传照片 AI 自动识别景点并解说
 - **安全保障** — 一键求助、走失上报、安全告警
 - **匿名访问** — 无需注册即可体验
 
@@ -225,7 +227,7 @@ make demo
 
 - 浏览器需支持 **WebGL 2.0**（主流浏览器均已支持）
 - `apps/web-tourist/public/live2d/live2dcubismcore.min.js` 必须存在（Cubism Core 运行时，约 200 KB）
-- `apps/web-tourist/public/live2d/mao_pro/` 下需包含 `model3.json` + `moc3` + motions/expressions/physics/pose/cdi 以及 `mao_pro.4096/texture_00.png`
+- `apps/web-tourist/public/live2d/haru_greeter/` 下需包含 `model3.json` + `moc3` + motions/physics/pose/cdi 以及纹理资源
 
 ### 交互行为
 
@@ -233,6 +235,7 @@ make demo
 |------|------|
 | 鼠标移动 | 眼睛跟随光标（`autoInteract`） |
 | 点击角色 | 播放随机动作 + 切换表情 |
+| AI 语音 | 自动口型同步 (lipsync via `pixi-live2d-display-lipsyncpatch`) |
 | 视口尺寸变化 | `ResizeObserver` 自适应画布 |
 | 组件卸载 | 销毁 PIXI Application 与模型，释放 WebGL 上下文 |
 
@@ -247,12 +250,14 @@ apps/web-tourist/
 │   └── linjing.css                      # .live2d-mao-floating 定位样式
 └── public/live2d/
     ├── live2dcubismcore.min.js          # Live2D 官方 Cubism 5 Core 运行时
-    └── mao_pro/                         # Cubism 5 "Mao Pro" 示例模型
-        ├── mao_pro.model3.json
-        ├── mao_pro.moc3
+    └── haru_greeter/                    # Cubism 5 "Haru Greeter" 示例模型
+        ├── haru_greeter_t05.model3.json
+        ├── haru_greeter_t05.moc3
+        ├── haru_greeter_t05.cdi3.json
+        ├── haru_greeter_t05.physics3.json
+        ├── haru_greeter_t05.pose3.json
         ├── motions/*.motion3.json
-        ├── expressions/*.exp3.json
-        └── mao_pro.4096/texture_00.png
+        └── haru_greeter_t05.2048/texture_00.png
 ```
 
 ### 替换模型
@@ -260,24 +265,16 @@ apps/web-tourist/
 想换成自己的 Cubism 3/4/5 模型：
 
 1. 将整套模型资产（`.model3.json` + `.moc3` + motions / expressions / textures）放到 `apps/web-tourist/public/live2d/<your-model>/`
-2. 修改 `apps/web-tourist/app/page.tsx` 中的挂载：
-
-   ```tsx
-   <Live2DMao
-     modelUrl="/live2d/<your-model>/<your-model>.model3.json"
-     width={280}
-     height={420}
-   />
-   ```
+2. 修改 `apps/web-tourist/app/components/Live2DMao.tsx` 中的 `modelUrl` prop
 
 3. 如需接入 TTS 口型同步，可调用组件内部 `model.speak(audioUrl)`（`pixi-live2d-display-lipsyncpatch` 原生支持）。
 
 ### 授权说明
 
-> ⚠️ **务必确认**：本项目仓库附带的 `mao_pro` 是 **Live2D 官方示例模型**，并非可无限制再分发的资产。
+> ⚠️ **务必确认**：本项目仓库附带的 `haru_greeter` 是 **Live2D 官方示例模型**，并非可无限制再分发的资产。
 
 - **Cubism Core 运行时** (`live2dcubismcore.min.js`) 受 *Live2D Proprietary Software License* 约束，商用时需在产品"关于"页显示 "Live2D Cubism SDK" 版权声明。参见 <https://www.live2d.com/en/sdk/license/>
-- **Mao Pro 模型**：普通用户及小规模企业在同意授权协议下可用于商业用途；中/大规模企业只能用于非公开的内部试用。详见 [`apps/web-tourist/public/live2d/mao_pro/LICENSE.txt`](apps/web-tourist/public/live2d/mao_pro/LICENSE.txt) 及 <https://www.live2d.com/zh-CHS/download/sample-data/>
+- **Haru Greeter 模型**：普通用户及小规模企业在同意授权协议下可用于商业用途；中/大规模企业只能用于非公开的内部试用。详见 <https://www.live2d.com/en/download/sample-data/>
 - 生产环境建议替换为自有或已取得授权的模型。
 
 ## API 接口
@@ -289,20 +286,21 @@ apps/web-tourist/
 
 游客端
   POST   /api/v1/sessions                创建会话
-  POST   /api/v1/chat                     发送消息 (SSE 流式响应)
   GET    /api/v1/landmarks                获取景点列表
-  GET    /api/v1/recommendations          获取推荐路线
-  POST   /api/v1/feedback                 提交反馈
+  POST   /api/v1/recommendations/route   获取推荐路线
+  POST   /api/v1/sessions/{id}/photo     拍照识景
+  POST   /api/v1/tts                     文本转语音
+  WS     /api/v1/sessions/{id}/stream    AI 对话流 (WebSocket)
 
 安全保障
   GET    /api/v1/safety/alerts            获取安全告警
   POST   /api/v1/safety/lost              上报走失人员
 
 管理端
-  GET    /admin/v1/summary                数据概览
+  GET    /admin/v1/dashboard             数据大盘
   GET    /admin/v1/audit                  审计日志
-  GET    /admin/v1/experiments            实验管理
   GET    /admin/v1/knowledge              知识库管理
+  GET    /admin/v1/experiments            实验管理
 ```
 
 完整接口文档：[`docs/api/openapi.yaml`](docs/api/openapi.yaml)
@@ -337,6 +335,29 @@ aether-guide/
 ├── scripts/                    # 开发脚本
 └── tests/                      # 测试 (E2E / 评估 / 性能)
 ```
+
+## 高德地图 & 景点坐标
+
+游客端主页集成 AMap JSAPI v2.0 深色风格地图，展示三坊七巷 19 个精选景点标记。
+
+### 坐标校准
+
+种子数据 (`infra/seed/scenic_demo.json`) 中的景点坐标通过 AMap PlaceSearch 插件搜索校准，使用 GCJ-02 坐标系，17/19 个景点由高德 POI 直接确认。
+
+如需重新校准（例如更换景区），可在浏览器控制台运行：
+
+```js
+await window.__calibrate()
+```
+
+或打开独立校准页面 `scripts/calibrate.html` 逐个搜索景点并复制输出的 JSON。
+
+### 环境变量
+
+| 变量 | 说明 |
+|------|------|
+| `NEXT_PUBLIC_AMAP_KEY` | 高德 JSAPI v2.0 Key |
+| `NEXT_PUBLIC_AMAP_SECURITY_JS_CODE` | 高德 JSAPI v2.0 安全密钥 |
 
 ## 测试
 
@@ -392,7 +413,7 @@ docker compose -f infra/docker-compose.yml up -d
 
 **Aether Guide** is an AI-powered digital human guide platform for scenic areas. It features LLM-based conversational AI, RAG knowledge retrieval, multi-modal positioning, and safety alerting — delivering an immersive smart tour experience.
 
-A **Live2D Cubism 5** avatar (Mao Pro) is rendered as a floating guide on the tourist home page via `pixi.js` + `pixi-live2d-display-lipsyncpatch`. The model tracks the cursor, reacts to taps with random motions/expressions, and can be swapped out for any Cubism 3/4/5 `.model3.json` asset.
+A **Live2D Cubism 5** avatar (Haru Greeter) is rendered as a floating guide on the tourist home page via `pixi.js` + `pixi-live2d-display-lipsyncpatch`. The model tracks the cursor, reacts to taps with random motions/expressions, auto-lipsyncs with TTS audio, and can be swapped out for any Cubism 3/4/5 `.model3.json` asset.
 
 See the [API spec](docs/api/openapi.yaml), the [architecture diagram](#技术架构), and the [数字人 (Live2D)](#数字人-live2d) section above for details.
 
@@ -411,7 +432,7 @@ npm run web:dev:admin    # http://localhost:3002
 
 ### Live2D Licensing Notice
 
-The bundled **Mao Pro** model and `live2dcubismcore.min.js` runtime are proprietary Live2D Inc. assets. Commercial deployment requires agreement to the [Live2D Sample Data License](https://www.live2d.com/en/download/sample-data/) and the [Live2D Proprietary Software License](https://www.live2d.com/en/sdk/license/). Replace with your own licensed model for production use.
+The bundled **Haru Greeter** model and `live2dcubismcore.min.js` runtime are proprietary Live2D Inc. assets. Commercial deployment requires agreement to the [Live2D Sample Data License](https://www.live2d.com/en/download/sample-data/) and the [Live2D Proprietary Software License](https://www.live2d.com/en/sdk/license/). Replace with your own licensed model for production use.
 
 ### License
 
