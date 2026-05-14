@@ -63,6 +63,26 @@
   color-scheme: light;
 }
 
+/* ---- Light mode for Linjing (tourist app) ---- */
+:root[data-theme="linjing"][data-mode="light"] {
+  --stone-void: #F5F0E8;
+  --stone-deep: #FAF7F0;
+  --stone-mid: #F0EBE0;
+  --stone-elev: #FFFFFF;
+  --stone-line: #D8D0C2;
+  --text-primary: #1A1812;
+  --text-secondary: #5A5648;
+  --text-tertiary: #8A8578;
+  --text-disabled: #B5B0A5;
+  --surface-base: var(--stone-deep);
+  --surface-elev: #FFFFFF;
+  --surface-card: rgba(255, 255, 255, 0.88);
+  --line-soft: rgba(26, 24, 18, 0.1);
+  --shadow-elev: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(0, 0, 0, 0.03);
+  --glow-soft: 0 0 24px rgba(196, 146, 74, 0.06);
+  color-scheme: light;
+}
+
 .atmosphere-lake { --accent-500: #3F7B7A; --accent-300: #7EB5B4; --accent-700: #2A5453; }
 .atmosphere-dusk { --accent-500: #C4924A; --accent-300: #DDB87A; --accent-700: #8C6428; }
 .atmosphere-ocean { --accent-500: #2C5F7C; --accent-300: #5E91AE; --accent-700: #1A3F54; }
@@ -356,5 +376,91 @@ img {
 
 .photo-zoom:hover img {
   transform: scale(1.04);
+}
+
+/* ---- Theme toggle (dark / light mode switch) ---- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color var(--dur-base) var(--ease-glide);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.theme-toggle:hover {
+  color: var(--gold-light);
+}
+
+.theme-toggle-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 48px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-soft);
+  background: var(--surface-card);
+  transition:
+    background var(--dur-base) var(--ease-glide),
+    border-color var(--dur-base) var(--ease-glide);
+}
+
+.theme-toggle:hover .theme-toggle-track {
+  border-color: rgba(232, 200, 150, 0.3);
+}
+
+.theme-toggle-sun,
+.theme-toggle-moon {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  transition:
+    opacity var(--dur-base) var(--ease-glide),
+    transform var(--dur-base) var(--ease-spring);
+}
+
+.theme-toggle-sun {
+  left: 6px;
+  opacity: 0;
+  transform: rotate(-45deg) scale(0.6);
+}
+
+.theme-toggle-moon {
+  right: 6px;
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+/* Light mode: swap icon visibility */
+:root[data-mode="light"] .theme-toggle-sun {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+:root[data-mode="light"] .theme-toggle-moon {
+  opacity: 0;
+  transform: rotate(45deg) scale(0.6);
+}
+
+.theme-toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: transform var(--dur-base) var(--ease-spring);
+}
+
+:root[data-mode="light"] .theme-toggle-knob {
+  transform: translateX(22px);
+  background: var(--gold-deep);
 }
 

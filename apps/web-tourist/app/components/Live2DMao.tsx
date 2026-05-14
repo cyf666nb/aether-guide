@@ -128,6 +128,7 @@ export default function Live2DMao({
       dataArray: Uint8Array<ArrayBuffer> | null;
       tickerFn: (() => void) | null;
       idleTimer: ReturnType<typeof setInterval> | null;
+      resumeAudioContext: (() => void) | null;
     } = {
       app: null,
       model: null,
@@ -137,6 +138,7 @@ export default function Live2DMao({
       dataArray: null,
       tickerFn: null,
       idleTimer: null,
+      resumeAudioContext: null,
     };
 
     setStatus("loading");
@@ -329,7 +331,9 @@ export default function Live2DMao({
                 document.removeEventListener("click", resumeOnce);
                 document.removeEventListener("touchstart", resumeOnce);
                 document.removeEventListener("keydown", resumeOnce);
+                handles.resumeAudioContext = null;
               };
+              handles.resumeAudioContext = resumeOnce;
               document.addEventListener("click", resumeOnce, { once: true });
               document.addEventListener("touchstart", resumeOnce, {
                 once: true,
@@ -400,6 +404,16 @@ export default function Live2DMao({
       try {
         if (handles.tickerFn && handles.app?.ticker) {
           handles.app.ticker.remove(handles.tickerFn);
+        }
+      } catch {
+        /* noop */
+      }
+      try {
+        if (handles.resumeAudioContext) {
+          document.removeEventListener("click", handles.resumeAudioContext);
+          document.removeEventListener("touchstart", handles.resumeAudioContext);
+          document.removeEventListener("keydown", handles.resumeAudioContext);
+          handles.resumeAudioContext = null;
         }
       } catch {
         /* noop */

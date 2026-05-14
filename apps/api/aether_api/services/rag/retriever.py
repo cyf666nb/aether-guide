@@ -532,6 +532,8 @@ def _apply_intent_boost(
             boosted += 0.18
 
     if family_intent:
+        if candidate.source_id == "landmark:linjuemin-bingxin":
+            boosted += 0.35
         if candidate.source_id.startswith("doc:sfqx-family-elder-photo"):
             boosted += 0.45
         if candidate.source_id.startswith("doc:sfqx-intangible-heritage"):

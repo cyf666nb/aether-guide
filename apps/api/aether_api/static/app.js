@@ -21,8 +21,12 @@ function setStatus(label, online) {
 function addMessage(speaker, text, className) {
   const article = document.createElement("article");
   article.className = `message ${className}`;
-  article.innerHTML = `<span class="speaker">${speaker}</span><p></p>`;
-  article.querySelector("p").textContent = text;
+  const speakerNode = document.createElement("span");
+  speakerNode.className = "speaker";
+  speakerNode.textContent = speaker;
+  const textNode = document.createElement("p");
+  textNode.textContent = text;
+  article.append(speakerNode, textNode);
   messages.append(article);
   messages.scrollTop = messages.scrollHeight;
 }
@@ -46,10 +50,18 @@ async function loadLandmarks() {
   for (const item of data.landmarks) {
     const node = document.createElement("article");
     node.className = "landmark";
-    const tags = item.tags.map((tag) => `<span>${tag}</span>`).join("");
-    node.innerHTML = `<h3></h3><p></p><div class="tags">${tags}</div>`;
-    node.querySelector("h3").textContent = item.name;
-    node.querySelector("p").textContent = item.summary;
+    const title = document.createElement("h3");
+    title.textContent = item.name;
+    const summary = document.createElement("p");
+    summary.textContent = item.summary;
+    const tags = document.createElement("div");
+    tags.className = "tags";
+    for (const tag of item.tags) {
+      const tagNode = document.createElement("span");
+      tagNode.textContent = tag;
+      tags.append(tagNode);
+    }
+    node.append(title, summary, tags);
     landmarks.append(node);
   }
 }
@@ -99,4 +111,3 @@ sendMessage.addEventListener("click", () => {
 
 refreshLandmarks.addEventListener("click", loadLandmarks);
 loadLandmarks().catch((error) => addMessage("System", error.message, "guide"));
-

@@ -3,8 +3,9 @@
 import { CameraGlyph } from "@aether/design-system/icons";
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
+  memo,
   Suspense,
   useCallback,
   useEffect,
@@ -12,13 +13,13 @@ import {
   useRef,
   useState,
 } from "react";
+import { IntroScreen } from "./components/IntroScreen";
 import { TextStream } from "./components/TextStream";
-import { TrustBar, VisitorNav } from "./components/VisitorChrome";
+import { useNavState } from "./components/NavContext";
 import {
   createSession,
-  ensureTouristToken,
+  fetchTtsAudioUrl,
   getLandmarks,
-  identifyPhoto,
   wsUrl,
   type Landmark,
 } from "./lib/api";
@@ -111,10 +112,23 @@ export default function TouristHomePage() {
 }
 
 function TouristHome() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const [introActive, setIntroActive] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !sessionStorage.getItem("intro-seen");
+  });
+  const handleIntroComplete = useCallback(() => {
+    try { sessionStorage.setItem("intro-seen", "1"); } catch {}
+    setIntroActive(false);
+  }, []);
   const initialQueryRef = useRef<string | null>(
     searchParams.get("q")?.trim() || null,
   );
+  const shouldAutoSendInitialQueryRef = useRef(
+    searchParams.get("autoSend") === "true",
+  );
+  const initialQuerySentRef = useRef(false);
 
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [input, setInput] = useState("");
@@ -122,6 +136,7 @@ function TouristHome() {
   const [isThinking, setIsThinking] = useState(false);
   const [currentSpotIndex, setCurrentSpotIndex] = useState(0);
   const [latestAnnounce, setLatestAnnounce] = useState("");
+  const [isAudioActive, setIsAudioActive] = useState(false);
 
   // Use a ref for message id generation: a module-level `let` resets under
   // HMR and isn't component-scoped.
@@ -154,12 +169,7 @@ function TouristHome() {
   const conversationRef = useRef<HTMLElement | null>(null);
   const userScrolledUpRef = useRef(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Photo identification state.
-  const [photoState, setPhotoState] = useState<
-    "idle" | "identifying"
-  >("idle");
+  const placeholderIndexRef = useRef(0);
 
   // --- Audio element (persistent; unlocks TTS autoplay after first click) ---
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
@@ -167,9 +177,9 @@ function TouristHome() {
   const currentAudioUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    setPlaceholder(
-      PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)],
-    );
+    const nextIndex = Math.floor(Math.random() * PLACEHOLDERS.length);
+    placeholderIndexRef.current = nextIndex;
+    setPlaceholder(PLACEHOLDERS[nextIndex]);
   }, []);
 
   // If the user arrived via /?q=... (e.g. landmark cards), prefill and focus.
@@ -192,8 +202,14 @@ function TouristHome() {
         currentAudioUrlRef.current = null;
       }
     };
-    audio.addEventListener("ended", releaseCurrent);
-    audio.addEventListener("error", releaseCurrent);
+    const finishPlayback = () => {
+      releaseCurrent();
+      setIsAudioActive(false);
+    };
+    const handlePlay = () => setIsAudioActive(true);
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("ended", finishPlayback);
+    audio.addEventListener("error", finishPlayback);
 
     const tryPlayPending = () => {
       const url = pendingAudioUrlRef.current;
@@ -202,9 +218,11 @@ function TouristHome() {
       releaseCurrent();
       audio.src = url;
       currentAudioUrlRef.current = url;
+      setIsAudioActive(true);
       audio.play().catch(() => {
         pendingAudioUrlRef.current = url;
         currentAudioUrlRef.current = null;
+        setIsAudioActive(true);
       });
     };
 
@@ -213,8 +231,9 @@ function TouristHome() {
     return () => {
       document.removeEventListener("click", tryPlayPending);
       document.removeEventListener("touchstart", tryPlayPending);
-      audio.removeEventListener("ended", releaseCurrent);
-      audio.removeEventListener("error", releaseCurrent);
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("ended", finishPlayback);
+      audio.removeEventListener("error", finishPlayback);
       audio.pause();
       audio.src = "";
       if (pendingAudioUrlRef.current) {
@@ -241,9 +260,11 @@ function TouristHome() {
     }
     audio.src = audioUrl;
     currentAudioUrlRef.current = audioUrl;
+    setIsAudioActive(true);
     audio.play().catch(() => {
       pendingAudioUrlRef.current = audioUrl;
       currentAudioUrlRef.current = null;
+      setIsAudioActive(true);
     });
   }, []);
 
@@ -252,19 +273,7 @@ function TouristHome() {
       const trimmed = text.trim();
       if (!trimmed) return null;
       try {
-        const token = await ensureTouristToken();
-        const apiBase = `${window.location.protocol}//${window.location.hostname}:8000`;
-        const response = await fetch(`${apiBase}/api/v1/tts`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ text: trimmed }),
-        });
-        if (!response.ok) return null;
-        const blob = await response.blob();
-        return URL.createObjectURL(blob);
+        return await fetchTtsAudioUrl(trimmed);
       } catch {
         return null;
       }
@@ -279,6 +288,23 @@ function TouristHome() {
     },
     [fetchTtsBlob, playBlobViaSharedAudio],
   );
+
+  const stopSpeaking = useCallback(() => {
+    const audio = audioElementRef.current;
+    if (audio) {
+      audio.pause();
+      audio.src = "";
+    }
+    if (pendingAudioUrlRef.current) {
+      URL.revokeObjectURL(pendingAudioUrlRef.current);
+      pendingAudioUrlRef.current = null;
+    }
+    if (currentAudioUrlRef.current) {
+      URL.revokeObjectURL(currentAudioUrlRef.current);
+      currentAudioUrlRef.current = null;
+    }
+    setIsAudioActive(false);
+  }, []);
 
   const { data: landmarks = [] } = useQuery({
     queryKey: ["landmarks"],
@@ -325,10 +351,10 @@ function TouristHome() {
     const openSession = async () => {
       try {
         setConnection((prev) => (prev === "online" ? prev : "connecting"));
-        const session = await createSession();
-        sessionIdRef.current = session.id;
+        const sessionId = sessionIdRef.current ?? (await createSession()).id;
+        sessionIdRef.current = sessionId;
         if (!mounted) return;
-        const info = await wsUrl(session.id);
+        const info = await wsUrl(sessionId);
         const socket = new WebSocket(info.url, info.protocols);
         socketRef.current = socket;
 
@@ -490,84 +516,18 @@ function TouristHome() {
 
   // ------------------- Photo identification -------------------
   const handlePhotoClick = useCallback(() => {
-    if (photoState === "identifying") return;
-    fileInputRef.current?.click();
-  }, [photoState]);
-
-  const handleFileChange = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-      const sessionId = sessionIdRef.current;
-      if (!sessionId) {
-        setMessages((current) => [
-          ...current,
-          mkMessage({
-            speaker: "System",
-            text: "会话尚未建立，请稍后再试。",
-            role: "guide",
-          }),
-        ]);
-        return;
-      }
-      setPhotoState("identifying");
-      try {
-        const reader = new FileReader();
-        const base64 = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => {
-            const result = reader.result as string;
-            const comma = result.indexOf(",");
-            resolve(comma >= 0 ? result.slice(comma + 1) : result);
-          };
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(file);
-        });
-
-        const result = await identifyPhoto(sessionId, base64);
-        setPhotoState("idle");
-
-        // Push the photo result into the conversation.
-        const nameLine = result.landmark_name
-          ? `已识别到景点：${result.landmark_name}（置信度 ${Math.round(result.confidence * 100)}%）`
-          : "未能确定景点位置";
-        setMessages((current) => [
-          ...current,
-          mkMessage({
-            speaker: "你",
-            text: `[📷 拍照识景]`,
-            role: "user",
-          }),
-          mkMessage({
-            speaker: "知行",
-            text: `${nameLine}\n\n${result.narration}`,
-            role: "guide",
-          }),
-        ]);
-        if (result.narration) {
-          setLatestAnnounce(result.narration);
-          speakText(result.narration);
-        }
-      } catch {
-        setPhotoState("idle");
-        setMessages((current) => [
-          ...current,
-          mkMessage({
-            speaker: "System",
-            text: "拍照识景失败，请检查网络后重试。",
-            role: "guide",
-          }),
-        ]);
-      } finally {
-        // Reset the file input so the same file can be picked again.
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }
-    },
-    [mkMessage, speakText],
-  );
+    router.push("/photo");
+  }, [router]);
 
   // ------------------- Send -------------------
-  const send = useCallback(() => {
-    const text = input.trim();
+  const rotatePlaceholder = useCallback(() => {
+    placeholderIndexRef.current =
+      (placeholderIndexRef.current + 1) % PLACEHOLDERS.length;
+    setPlaceholder(PLACEHOLDERS[placeholderIndexRef.current]);
+  }, []);
+
+  const sendText = useCallback((rawText: string) => {
+    const text = rawText.trim();
     if (!text || isThinking) return;
     setMessages((current) => [
       ...current,
@@ -591,14 +551,27 @@ function TouristHome() {
       ]);
     }
     setInput("");
-    setPlaceholder(
-      PLACEHOLDERS[
-        (PLACEHOLDERS.indexOf(placeholder as (typeof PLACEHOLDERS)[number]) +
-          1) %
-          PLACEHOLDERS.length
-      ],
-    );
-  }, [input, isThinking, mkMessage, placeholder]);
+    rotatePlaceholder();
+  }, [isThinking, mkMessage, rotatePlaceholder]);
+
+  const send = useCallback(() => {
+    sendText(input);
+  }, [input, sendText]);
+
+  useEffect(() => {
+    const q = initialQueryRef.current;
+    if (
+      !q ||
+      !shouldAutoSendInitialQueryRef.current ||
+      initialQuerySentRef.current ||
+      connection === "connecting" ||
+      connection === "reconnecting"
+    ) {
+      return;
+    }
+    initialQuerySentRef.current = true;
+    sendText(q);
+  }, [connection, sendText]);
 
   const canSend = input.trim().length > 0 && !isThinking;
 
@@ -626,29 +599,9 @@ function TouristHome() {
   // Trigger AI narration about the currently selected landmark.
   const handleNarrate = useCallback(() => {
     const lm = currentLandmark;
-    if (!lm || isThinking) return;
-    const text = `介绍一下${lm.name}`;
-    setMessages((current) => [
-      ...current,
-      mkMessage({ speaker: "你", text, role: "user" }),
-    ]);
-    setIsThinking(true);
-    const socket = socketRef.current;
-    if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: "user_text", text, locale: "zh-CN" }));
-    } else {
-      setIsThinking(false);
-      setMessages((current) => [
-        ...current,
-        mkMessage({
-          speaker: "知行",
-          text: `当前使用本地知识库演示模式。${lm.name}是三坊七巷的重要景点，承载着丰富的历史故事。`,
-          role: "guide",
-          citations: ["fallback:local"],
-        }),
-      ]);
-    }
-  }, [currentLandmark, isThinking, mkMessage]);
+    if (!lm) return;
+    sendText(`介绍一下${lm.name}`);
+  }, [currentLandmark, sendText]);
 
   // Keep the old name-based spot variable for any remaining references.
   const spot = currentLandmark?.name ?? "南后街";
@@ -660,18 +613,35 @@ function TouristHome() {
         ? "offline"
         : "offline";
 
+  const { setNav } = useNavState();
+  useEffect(() => {
+    setNav(trustMode, connection);
+  }, [trustMode, connection, setNav]);
+
   return (
     <main className="tourist-frame tourist-home">
-      <TrustBar mode={trustMode} state={connection} />
-      <VisitorNav />
+      {introActive && <IntroScreen onComplete={handleIntroComplete} />}
       <section className="hero-stage">
         <AmapView
           landmarks={landmarks}
+          activeLandmarkId={currentLandmark?.id ?? null}
           onMarkerClick={(landmarkId: string) => {
             const idx = mapLandmarks.findIndex((lm) => lm.id === landmarkId);
             if (idx !== -1) setCurrentSpotIndex(idx);
           }}
         />
+        <div className="home-masthead" aria-hidden="true">
+          <p className="home-masthead-kicker">
+            SANFANG QIXIANG / AI WALKING EDITORIAL
+          </p>
+          <div className="home-masthead-title">
+            <span>坊巷</span>
+            <span>知行</span>
+          </div>
+          <p className="home-masthead-copy">
+            把散落的故居、坊巷和非遗，排成一页会回答的游览手稿。
+          </p>
+        </div>
         <div className="guide-presence" aria-label="数字人导览助手">
           {/*
             Live2D "Haru Greeter" 直接落在地图预留的数字人位里(右下角气泡位),
@@ -791,6 +761,10 @@ function TouristHome() {
         // every streamed token.
         aria-live="off"
       >
+        <div className="conversation-paper-head" aria-hidden="true">
+          <span>今日手稿</span>
+          <strong>{currentLandmark?.name ?? "三坊七巷"}</strong>
+        </div>
         {messages.map((message) => (
           <MessageRow
             key={message._id}
@@ -834,22 +808,12 @@ function TouristHome() {
       </div>
 
       <section className="composer-dock">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          style={{ display: "none" }}
-          onChange={handleFileChange}
-          aria-label="拍照或选择图片识别景点"
-        />
         <button
           className="camera-button"
           type="button"
           onClick={handlePhotoClick}
-          disabled={photoState === "identifying"}
-          aria-label="拍照识景"
-          title="拍照识景"
+          aria-label="打开拍照识景页"
+          title="打开拍照识景页"
         >
           <CameraGlyph width={28} height={28} />
         </button>
@@ -880,6 +844,17 @@ function TouristHome() {
             <span />
           </span>
         </label>
+        {isAudioActive ? (
+          <button
+            className="audio-stop-button"
+            type="button"
+            onClick={stopSpeaking}
+            aria-label="停止朗读"
+            title="停止朗读"
+          >
+            停止
+          </button>
+        ) : null}
         <button
           className="primary-button"
           type="button"
@@ -897,15 +872,15 @@ function TouristHome() {
 // Extracted + memoised to avoid re-rendering every historical bubble when a
 // new streaming token arrives (the streaming message's text changes, but
 // previously-committed messages get memo-stable props).
-const MessageRow = ({
+const MessageRow = memo(function MessageRow({
   message,
   landmarkNames,
   onSpeak,
 }: {
   message: ChatMessage;
   landmarkNames: Map<string, string>;
-  onSpeak: (text: string) => void;
-}) => {
+  onSpeak: (text: string) => Promise<void> | void;
+}) {
   if (message.role === "user") {
     return (
       <article className="message-row user">
@@ -928,14 +903,36 @@ const MessageRow = ({
       </div>
     </article>
   );
-};
+}, areMessageRowsEqual);
+
+function areMessageRowsEqual(
+  prev: {
+    message: ChatMessage;
+    landmarkNames: Map<string, string>;
+    onSpeak: (text: string) => Promise<void> | void;
+  },
+  next: {
+    message: ChatMessage;
+    landmarkNames: Map<string, string>;
+    onSpeak: (text: string) => Promise<void> | void;
+  },
+) {
+  return (
+    prev.message._id === next.message._id &&
+    prev.message.text === next.message.text &&
+    prev.message.cacheHit === next.message.cacheHit &&
+    prev.message.citations === next.message.citations &&
+    prev.landmarkNames === next.landmarkNames &&
+    prev.onSpeak === next.onSpeak
+  );
+}
 
 function SpeakButton({
   text,
   onPlay,
 }: {
   text: string;
-  onPlay: (text: string) => void;
+  onPlay: (text: string) => Promise<void> | void;
 }) {
   const [loading, setLoading] = useState(false);
   const handleClick = async () => {
@@ -944,9 +941,7 @@ function SpeakButton({
     try {
       await onPlay(text);
     } finally {
-      // onPlay kicks off audio but doesn't resolve on end; a short cooldown
-      // prevents accidental double-clicks.
-      setTimeout(() => setLoading(false), 400);
+      setLoading(false);
     }
   };
   return (

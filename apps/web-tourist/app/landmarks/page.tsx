@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { TrustBar, VisitorNav } from "../components/VisitorChrome";
 import { getLandmarks, type Landmark } from "../lib/api";
 
 const FEATURED_ROUTE_IDS = [
@@ -100,7 +99,7 @@ function tagLabel(tag: string) {
 }
 
 function getAskHref(landmark: Landmark) {
-  return `/?q=${encodeURIComponent(`${landmark.name}有什么看点？适合停留多久？`)}`;
+  return `/?q=${encodeURIComponent(`${landmark.name}有什么看点？适合停留多久？`)}&autoSend=true`;
 }
 
 function getSearchText(landmark: Landmark) {
@@ -123,6 +122,8 @@ function formatDuration(minutes: number) {
 }
 
 function getCuratedStops(landmarks: Landmark[]) {
+  const featured = landmarks.filter((landmark) => landmark.is_featured);
+  if (featured.length > 0) return featured.slice(0, 4);
   const landmarkById = new Map(landmarks.map((landmark) => [landmark.id, landmark]));
   const stops = FEATURED_ROUTE_IDS.flatMap((id) => {
     const landmark = landmarkById.get(id);
@@ -134,7 +135,8 @@ function getCuratedStops(landmarks: Landmark[]) {
 export default function LandmarksPage() {
   const [query, setQuery] = useState("");
   const [selectedTheme, setSelectedTheme] = useState<ThemeKey>("all");
-  const { data: landmarks = [], isLoading } = useQuery({
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const { data: landmarks = [], isLoading, isFetching } = useQuery({
     queryKey: ["landmarks"],
     queryFn: () => getLandmarks(),
     staleTime: 1000 * 60 * 20,
@@ -142,12 +144,22 @@ export default function LandmarksPage() {
 
   const filteredLandmarks = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
+    const selectedTagLabel = selectedTag ? tagLabel(selectedTag) : null;
     return landmarks.filter((landmark) => {
       const themeMatched = matchesTheme(landmark, selectedTheme);
-      if (!normalizedQuery) return themeMatched;
-      return themeMatched && getSearchText(landmark).includes(normalizedQuery);
+      const tagMatched =
+        !selectedTag ||
+        landmark.tags.some(
+          (tag) => tag === selectedTag || tagLabel(tag) === selectedTagLabel,
+        );
+      if (!normalizedQuery) return themeMatched && tagMatched;
+      return (
+        themeMatched &&
+        tagMatched &&
+        getSearchText(landmark).includes(normalizedQuery)
+      );
     });
-  }, [landmarks, query, selectedTheme]);
+  }, [landmarks, query, selectedTag, selectedTheme]);
 
   const featuredLandmark = landmarks[0];
   const curatedStops = useMemo(() => getCuratedStops(landmarks), [landmarks]);
@@ -170,9 +182,6 @@ export default function LandmarksPage() {
 
   return (
     <main className="tourist-frame landmarks-page">
-      <TrustBar mode="offline" />
-      <VisitorNav />
-
       <section className="landmarks-hero" aria-labelledby="landmarks-title">
         <div className="landmarks-hero-copy">
           <p className="caption">三坊七巷景点库</p>
@@ -232,12 +241,22 @@ export default function LandmarksPage() {
           <input
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSelectedTag(null);
+            }}
             placeholder="搜索景点、主题、非遗、马鞍墙"
             aria-label="搜索景点"
           />
           {query ? (
-            <button type="button" onClick={() => setQuery("")} aria-label="清空搜索">
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setSelectedTag(null);
+              }}
+              aria-label="清空搜索"
+            >
               ×
             </button>
           ) : null}
@@ -261,7 +280,15 @@ export default function LandmarksPage() {
         {hotTags.length > 0 && (
           <div className="landmark-hot-tags" aria-label="高频标签">
             {hotTags.map((tag) => (
-              <button key={tag} type="button" onClick={() => setQuery(tagLabel(tag))}>
+              <button
+                key={tag}
+                type="button"
+                className={selectedTag === tag ? "active" : ""}
+                onClick={() => {
+                  setSelectedTag((current) => (current === tag ? null : tag));
+                  setQuery("");
+                }}
+              >
                 {tagLabel(tag)}
               </button>
             ))}
@@ -300,9 +327,11 @@ export default function LandmarksPage() {
             </h2>
           </div>
           <span className="landmarks-result-note">
-            {selectedTheme === "all"
-              ? "全部主题"
-              : THEME_FILTERS.find((item) => item.key === selectedTheme)?.label}
+            {selectedTag
+              ? tagLabel(selectedTag)
+              : selectedTheme === "all"
+                ? "全部主题"
+                : THEME_FILTERS.find((item) => item.key === selectedTheme)?.label}
           </span>
         </div>
 
@@ -328,7 +357,7 @@ export default function LandmarksPage() {
                   </span>
                 ))}
               </div>
-              <span className="landmark-card-action">问讲解</span>
+              <span className="landmark-card-action">去问知行</span>
             </Link>
           ))}
         </div>
@@ -342,6 +371,7 @@ export default function LandmarksPage() {
               type="button"
               onClick={() => {
                 setQuery("");
+                setSelectedTag(null);
                 setSelectedTheme("all");
               }}
             >

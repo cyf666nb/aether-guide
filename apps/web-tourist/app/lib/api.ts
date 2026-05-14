@@ -2,10 +2,35 @@
 
 // --- API base URL resolution -----------------------------------------------
 
-function getApiBase(): string {
-  if (process.env.NEXT_PUBLIC_API_BASE) return process.env.NEXT_PUBLIC_API_BASE;
+let warnedApiFallback = false;
+
+export function getApiBase(): string {
+  const configured = process.env.NEXT_PUBLIC_API_BASE;
+  if (configured) return configured.replace(/\/$/, "");
+
   if (typeof window === "object") {
-    return `${window.location.protocol}//${window.location.hostname}:8000`;
+    const { hostname, origin, protocol } = window.location;
+    const isLocal =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1";
+    const fallback = isLocal
+      ? `${protocol}//${hostname === "::1" ? "[::1]" : hostname}:8000`
+      : origin;
+    if (!warnedApiFallback) {
+      console.warn(
+        `[api] NEXT_PUBLIC_API_BASE is not configured; falling back to ${fallback}`,
+      );
+      warnedApiFallback = true;
+    }
+    return fallback;
+  }
+
+  if (!warnedApiFallback) {
+    console.warn(
+      "[api] NEXT_PUBLIC_API_BASE is not configured; falling back to http://127.0.0.1:8000",
+    );
+    warnedApiFallback = true;
   }
   return "http://127.0.0.1:8000";
 }
@@ -27,6 +52,7 @@ export type Landmark = {
   tags: string[];
   avg_duration_min?: number;
   geo_point?: { lat: number; lng: number };
+  is_featured?: boolean;
 };
 
 export type Session = {
@@ -134,18 +160,21 @@ export async function ensureTouristToken(forceRefresh = false): Promise<string> 
   }
   if (bootstrapPromise) return bootstrapPromise;
   bootstrapPromise = (async () => {
-    const traceId = randomTraceId();
-    const response = await fetch(`${getApiBase()}/api/v1/auth/anonymous`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Trace-Id": traceId },
-      body: "{}"
-    });
-    lastTraceId = response.headers.get("X-Trace-Id") ?? traceId;
-    const payload = (await response.json()) as ApiEnvelope<{ token: string }>;
-    const token = payload.data?.token ?? "";
-    if (token) writeToken(token);
-    bootstrapPromise = null;
-    return token;
+    try {
+      const traceId = randomTraceId();
+      const response = await fetch(`${getApiBase()}/api/v1/auth/anonymous`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Trace-Id": traceId },
+        body: "{}"
+      });
+      lastTraceId = response.headers.get("X-Trace-Id") ?? traceId;
+      const payload = (await response.json()) as ApiEnvelope<{ token: string }>;
+      const token = payload.data?.token ?? "";
+      if (token) writeToken(token);
+      return token;
+    } finally {
+      bootstrapPromise = null;
+    }
   })();
   return bootstrapPromise;
 }
@@ -303,9 +332,16 @@ export async function identifyPhoto(
 }
 
 export async function speak(text: string): Promise<void> {
-  const token = await ensureTouristToken();
-  const apiBase = `${window.location.protocol}//${window.location.hostname}:8000`;
-  const response = await fetch(`${apiBase}/api/v1/tts`, {
+  const audioUrl = await fetchTtsAudioUrl(text);
+  const audio = new Audio(audioUrl);
+  const release = () => URL.revokeObjectURL(audioUrl);
+  audio.addEventListener("ended", release, { once: true });
+  audio.addEventListener("error", release, { once: true });
+  await audio.play();
+}
+
+export async function fetchTtsAudioUrl(text: string): Promise<string> {
+  const fetchAudio = async (token: string) => fetch(`${getApiBase()}/api/v1/tts`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -313,12 +349,15 @@ export async function speak(text: string): Promise<void> {
     },
     body: JSON.stringify({ text }),
   });
+  let token = await ensureTouristToken();
+  let response = await fetchAudio(token);
+  if (response.status === 401) {
+    token = await ensureTouristToken(true);
+    response = await fetchAudio(token);
+  }
   if (!response.ok) throw new Error("TTS failed");
   const audioBlob = await response.blob();
-  const audioUrl = URL.createObjectURL(audioBlob);
-  const audio = new Audio(audioUrl);
-  audio.play();
-  audio.onended = () => URL.revokeObjectURL(audioUrl);
+  return URL.createObjectURL(audioBlob);
 }
 
 export async function wsUrl(sessionId: string): Promise<WsConnectInfo> {

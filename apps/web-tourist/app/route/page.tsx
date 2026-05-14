@@ -1,9 +1,26 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
-import { TrustBar, VisitorNav } from "../components/VisitorChrome";
-import { getRoute, type RoutePreferences } from "../lib/api";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import {
+  getLandmarks,
+  getRoute,
+  type Landmark,
+  type RoutePlan,
+  type RoutePreferences,
+} from "../lib/api";
+
+const AmapView = dynamic(
+  () => import("../components/AmapView").then((m) => ({ default: m.AmapView })),
+  {
+    ssr: false,
+    loading: () => <div className="amap-container" aria-hidden="true" />,
+  },
+);
+
+const ROUTE_STORAGE_KEY = "aether.route.lastPlan";
 
 const INTEREST_OPTIONS = [
   { key: "history", label: "历史人文" },
@@ -46,6 +63,31 @@ const AGE_OPTIONS = [
   { value: "55+", label: "55 岁以上" },
 ] as const;
 
+function readStoredRoute(): RoutePlan | null {
+  if (typeof window !== "object") return null;
+  try {
+    const raw = window.sessionStorage.getItem(ROUTE_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as RoutePlan) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredRoute(route: RoutePlan): void {
+  if (typeof window !== "object") return;
+  try {
+    window.sessionStorage.setItem(ROUTE_STORAGE_KEY, JSON.stringify(route));
+  } catch {
+    // sessionStorage may be unavailable in private/sandboxed contexts.
+  }
+}
+
+function getAmapNavigationHref(landmark: Landmark | undefined, name: string) {
+  const geo = landmark?.geo_point;
+  if (!geo) return null;
+  return `https://uri.amap.com/navigation?to=${geo.lng},${geo.lat},${encodeURIComponent(name)}&mode=walk&policy=1&coordinate=gaode&callnative=1`;
+}
+
 export default function RoutePage() {
   const [prefs, setPrefs] = useState<RoutePreferences>({
     gender: "unspecified",
@@ -56,6 +98,9 @@ export default function RoutePage() {
     duration_minutes: 120,
     custom_note: "",
   });
+  const [savedRoute, setSavedRoute] = useState<RoutePlan | null>(
+    readStoredRoute,
+  );
 
   const toggleInterest = (key: string) => {
     setPrefs((prev) => ({
@@ -68,19 +113,38 @@ export default function RoutePage() {
 
   const routeMutation = useMutation({
     mutationFn: (prefs: RoutePreferences) => getRoute(prefs),
+    onSuccess: (nextRoute) => {
+      setSavedRoute(nextRoute);
+      writeStoredRoute(nextRoute);
+    },
   });
 
   const handleGenerate = () => {
     routeMutation.mutate(prefs);
   };
 
-  const route = routeMutation.data;
+  const { data: landmarks = [] } = useQuery({
+    queryKey: ["landmarks"],
+    queryFn: () => getLandmarks(),
+    staleTime: 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+  });
+
+  const landmarkById = useMemo(
+    () => new Map(landmarks.map((landmark) => [landmark.id, landmark])),
+    [landmarks],
+  );
+  const route = routeMutation.data ?? savedRoute;
+  const routeStopIds = useMemo(
+    () => route?.stops.map((stop) => stop.landmark_id) ?? [],
+    [route],
+  );
+  const hasRouteOutput = routeMutation.isPending || Boolean(route);
 
   return (
-    <main className="tourist-frame route-page">
-      <TrustBar mode="online" />
-      <VisitorNav />
-
+    <main
+      className={`tourist-frame route-page${hasRouteOutput ? " route-page-with-output" : ""}`}
+    >
       {/* Preference form */}
       <section className="route-prefs">
         <p className="caption">AI 路线规划</p>
@@ -116,27 +180,6 @@ export default function RoutePage() {
                   type="button"
                   className={`pref-chip ${prefs.age_range === opt.value ? "active" : ""}`}
                   onClick={() => setPrefs((p) => ({ ...p, age_range: opt.value }))}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          {/* Gender */}
-          <fieldset className="pref-group">
-            <legend>性别</legend>
-            <div className="chip-row">
-              {[
-                { value: "unspecified", label: "不限" },
-                { value: "male", label: "男" },
-                { value: "female", label: "女" },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={`pref-chip ${prefs.gender === opt.value ? "active" : ""}`}
-                  onClick={() => setPrefs((p) => ({ ...p, gender: opt.value }))}
                 >
                   {opt.label}
                 </button>
@@ -195,6 +238,11 @@ export default function RoutePage() {
                 </button>
               ))}
             </div>
+            {prefs.interests.length === 0 && (
+              <p className="pref-hint" role="status">
+                至少选一个兴趣偏好后才能生成路线。
+              </p>
+            )}
           </fieldset>
         </div>
 
@@ -236,13 +284,34 @@ export default function RoutePage() {
       {route && !routeMutation.isPending && (
         <section className="route-result">
           <div className="route-intro">
-            <p className="caption">专属路线</p>
-            <p className="type-body">{route.intro}</p>
-            <p className="route-stats">
-              步行约 {route.total_walk_minutes} 分钟
-              {route.total_duration_min > 0 && ` · 游览约 ${route.total_duration_min} 分钟`}
-            </p>
+            <div>
+              <p className="caption">专属路线</p>
+              <p className="type-body">{route.intro}</p>
+              <p className="route-stats">
+                步行约 {route.total_walk_minutes} 分钟
+                {route.total_duration_min > 0 && ` · 游览约 ${route.total_duration_min} 分钟`}
+              </p>
+            </div>
+            <button
+              className="thin-button"
+              type="button"
+              onClick={handleGenerate}
+              disabled={routeMutation.isPending || prefs.interests.length === 0}
+            >
+              重新生成
+            </button>
           </div>
+
+          {routeStopIds.length > 0 && (
+            <section className="route-map-panel" aria-label="路线地图">
+              <AmapView
+                landmarks={landmarks}
+                routeLandmarkIds={routeStopIds}
+                activeLandmarkId={routeStopIds[0]}
+                showSearch={false}
+              />
+            </section>
+          )}
 
           <section className="timeline">
             {route.stops.map((stop, index) => (
@@ -261,6 +330,28 @@ export default function RoutePage() {
                     {index > 0 && (
                       <span>步行 {stop.walk_minutes_from_previous} 分钟</span>
                     )}
+                    {getAmapNavigationHref(
+                      landmarkById.get(stop.landmark_id),
+                      stop.name,
+                    ) && (
+                      <a
+                        href={
+                          getAmapNavigationHref(
+                            landmarkById.get(stop.landmark_id),
+                            stop.name,
+                          ) ?? undefined
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        导航到这里
+                      </a>
+                    )}
+                    <Link
+                      href={`/?q=${encodeURIComponent(`帮我把${stop.name}换成另一个适合这条路线的景点`)}&autoSend=true`}
+                    >
+                      换一站
+                    </Link>
                   </div>
                 </div>
                 {index < route.stops.length - 1 && (

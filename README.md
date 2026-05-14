@@ -38,8 +38,10 @@ Aether Guide 是一套面向景区的 **AI 数字人智慧导览系统**，采�
 - **AI 数字人 (Live2D)** — Cubism 5 "Haru Greeter" 角色浮窗，眼动跟随鼠标 / 点击触发表情与动作，叠加 LLM 流式对话 (WebSocket)
 - **高德地图** — AMap JSAPI v2.0 深色风格地图，景点标记 + POI 搜索
 - **智能导览** — 景点轮播、路线规划、AI 语音讲解 (TTS)
+- **多模态定位** — 视觉定位 (VPS)、QR 码锚点、对话式定位、融合定位
 - **拍照识景** — 上传照片 AI 自动识别景点并解说
-- **安全保障** — 一键求助、走失上报、安全告警
+- **安全保障** — 一键求助、走失上报、紧急点查询
+- **离线模式** — 支持离线数据包下载，无网络时仍可浏览景点信息
 - **匿名访问** — 无需注册即可体验
 
 </td>
@@ -47,11 +49,13 @@ Aether Guide 是一套面向景区的 **AI 数字人智慧导览系统**，采�
 
 ### 管理端
 
-- **数据大盘** — 实时游客统计、会话分析、热度地图
-- **知识管理** — RAG 知识库维护、景区信息管理
+- **数据大盘** — 实时游客统计、会话分析、热度地图、Token 成本监控
+- **知识管理** — RAG 知识库维护、文档上传与索引、景区信息管理
 - **审计日志** — 全链路操作追踪、用户行为分析
 - **氛围设置** — 多场景主题切换（森林/海洋/沙漠/黄昏/湖泊）
-- **实验管理** — A/B 测试、功能灰度发布
+- **实验管理** — A/B 测试、Prompt 实验、功能灰度发布
+- **会话回放** — 游客会话历史回放与标注
+- **人设管理** — 数字人人设配置、语音与头像绑定
 
 </td>
 </tr>
@@ -73,12 +77,14 @@ Aether Guide 是一套面向景区的 **AI 数字人智慧导览系统**，采�
 │                      FastAPI 后端 (API)                          │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
 │  │   Auth   │ │  Tourist │ │  Admin   │ │  Safety  │  Routers   │
+│  │  Avatar  │ │ Location │ │ Offline  │ │Recommend │           │
 │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘           │
 │       │            │            │            │                   │
 │  ┌────▼────────────▼────────────▼────────────▼────┐             │
 │  │              Services Layer                     │             │
 │  │  ┌─────┐ ┌─────┐ ┌──────┐ ┌──────┐ ┌───────┐  │             │
 │  │  │ AI  │ │ RAG │ │ Loc  │ │Voice │ │Safety │  │             │
+│  │  │ TTS │ │Digital│ │Recommend│ │     │ │       │  │             │
 │  │  └─────┘ └─────┘ └──────┘ └──────┘ └───────┘  │             │
 │  └────────────────────────────────────────────────┘             │
 │       │            │            │            │                   │
@@ -90,8 +96,8 @@ Aether Guide 是一套面向景区的 **AI 数字人智慧导览系统**，采�
             ▼                     ▼                     ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        基础设施 (Infra)                          │
-│   PostgreSQL       Redis        MinIO       LiveKit             │
-│   (pgvector)     (缓存/限流)   (对象存储)    (实时通信)           │
+│   PostgreSQL       Redis        Qdrant      MinIO               │
+│   (pgvector)     (缓存/限流)   (向量检索)   (对象存储)            │
 │                                                                  │
 │   Prometheus  +  Grafana  +  Loki  +  Tempo  (可观测性)         │
 └─────────────────────────────────────────────────────────────────┘
@@ -104,8 +110,10 @@ Aether Guide 是一套面向景区的 **AI 数字人智慧导览系统**，采�
 | **前端** | Next.js 15 · React 19 · Tailwind CSS 4 · TanStack Query |
 | **数字人** | Live2D Cubism 5 Core · pixi.js 7 · pixi-live2d-display-lipsyncpatch |
 | **后端** | FastAPI · Pydantic v2 · SQLAlchemy (async) · Alembic |
-| **AI 能力** | LiteLLM (可插拔) · RAG 检索增强 · 向量检索 |
-| **基础设施** | PostgreSQL (pgvector) · Redis · MinIO · LiveKit |
+| **AI 能力** | LiteLLM · Anthropic · OpenAI (可插拔) · RAG 检索增强 · 向量检索 (Qdrant) |
+| **TTS 语音** | MiMo TTS (小米) · 支持自定义语音角色 |
+| **视觉定位** | VPS (Visual Positioning Service) · QR 码锚点 · 对话式定位 · 融合定位 |
+| **基础设施** | PostgreSQL (pgvector) · Redis · Qdrant · MinIO |
 | **可观测性** | Prometheus · Grafana · Loki · Tempo |
 | **包管理** | uv (Python) · npm workspaces (Node) |
 
@@ -117,7 +125,7 @@ Aether Guide 是一套面向景区的 **AI 数字人智慧导览系统**，采�
 - **Node.js 20+** + npm
 - **Docker** (可选) — 用于启动 PostgreSQL、Redis 等基础设施
 
-### 🚀 一键启动(推荐)
+### 一键启动(推荐)
 
 **Windows** — 双击项目根目录的 `start.cmd` 即可,或命令行:
 
@@ -196,14 +204,62 @@ npm run web:dev:admin
 
 所有配置项以 `AETHER_` 为前缀，支持环境变量和 `.env` 文件。完整配置参见 [`.env.example`](.env.example)。
 
+### 核心配置
+
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `AETHER_STORAGE_MODE` | `inmemory` | 存储模式：`inmemory` / `database` |
-| `AETHER_AI_PROVIDER` | `fake` | AI 提供者：`fake` (回显) / `litellm` |
+| `AETHER_AI_PROVIDER` | `fake` | AI 提供者：`fake` (回显) / `litellm` / `anthropic` / `openai` |
 | `AETHER_DATABASE_URL` | `sqlite+aiosqlite:///...` | 数据库连接串 |
 | `AETHER_REDIS_URL` | `redis://localhost:6379/0` | Redis 地址（用于限流） |
 | `AETHER_JWT_SECRET` | `dev-only-secret-...` | JWT 密钥，**生产环境必须修改** |
 | `AETHER_CORS_ORIGINS` | `*` | CORS 允许来源，逗号分隔 |
+
+### AI 模型配置
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `AETHER_ANTHROPIC_API_KEY` | - | Anthropic API 密钥 |
+| `AETHER_ANTHROPIC_BASE_URL` | `https://ark.cn-beijing.volces.com/api/coding` | Anthropic API 基础 URL |
+| `AETHER_ANTHROPIC_MODEL` | - | Anthropic 模型名称 |
+| `AETHER_OPENAI_API_KEY` | - | OpenAI API 密钥 |
+| `AETHER_OPENAI_BASE_URL` | `https://ark.cn-beijing.volces.com/api/coding/v3` | OpenAI API 基础 URL |
+| `AETHER_LLM_TIMEOUT_SECONDS` | `6.0` | LLM 请求超时时间（秒） |
+| `AETHER_LLM_MAX_TOKENS` | `700` | LLM 最大生成 Token 数 |
+| `AETHER_LLM_TEMPERATURE` | `0.3` | LLM 温度参数 (0.0-1.0) |
+| `AETHER_LLM_THINKING_TYPE` | `disabled` | 思考模式：`disabled` / `enabled` / `adaptive` / `auto` / `omit` |
+| `AETHER_LLM_THINKING_BUDGET_TOKENS` | - | 思考模式 Token 预算 |
+| `AETHER_LLM_MAX_RETRIES` | `2` | LLM 请求最大重试次数 |
+
+### TTS 语音配置
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `AETHER_TTS_API_KEY` | - | TTS API 密钥 |
+| `AETHER_TTS_BASE_URL` | `https://token-plan-cn.xiaomimimo.com/v1` | TTS API 基础 URL |
+| `AETHER_TTS_MODEL` | `mimo-v2.5-tts` | TTS 模型名称 |
+| `AETHER_TTS_VOICE` | `female-tianmei` | TTS 语音角色 |
+
+### 视觉定位配置
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `AETHER_VLM_MODEL` | `doubao-seed-2.0-pro` | 视觉语言模型名称 |
+
+### 向量检索配置
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `AETHER_QDRANT_URL` | - | Qdrant 向量数据库地址 |
+| `AETHER_QDRANT_API_KEY` | - | Qdrant API 密钥 |
+| `AETHER_EMBEDDING_MODEL` | `BAAI/bge-m3` | 嵌入模型名称 |
+| `AETHER_EMBEDDING_USE_GPU` | `false` | 是否使用 GPU 加速嵌入计算 |
+
+### 限流配置
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `AETHER_RATE_LIMIT_PER_MINUTE` | `120` | 每分钟请求限制 |
 
 ### 使用数据库模式
 
@@ -290,17 +346,39 @@ apps/web-tourist/
   POST   /api/v1/recommendations/route   获取推荐路线
   POST   /api/v1/sessions/{id}/photo     拍照识景
   POST   /api/v1/tts                     文本转语音
+  POST   /api/v1/feedback                提交反馈
   WS     /api/v1/sessions/{id}/stream    AI 对话流 (WebSocket)
 
+数字人
+  GET    /api/v1/avatar/manifest          获取 Live2D 数字人配置清单
+
+多模态定位
+  POST   /api/v1/location/visual          视觉定位 (VPS)
+  POST   /api/v1/location/qr              QR 码锚点定位
+  POST   /api/v1/location/conversational  对话式定位
+  POST   /api/v1/location/fuse            融合定位
+  DELETE /api/v1/location/trail           清除用户轨迹
+
 安全保障
-  GET    /api/v1/safety/alerts            获取安全告警
   POST   /api/v1/safety/lost              上报走失人员
+  GET    /api/v1/safety/emergency-points  获取紧急点列表
+
+离线模式
+  GET    /api/v1/scenic/{id}/offline-pack 获取离线数据包
 
 管理端
-  GET    /admin/v1/dashboard             数据大盘
-  GET    /admin/v1/audit                  审计日志
-  GET    /admin/v1/knowledge              知识库管理
-  GET    /admin/v1/experiments            实验管理
+  GET    /admin/v1/dashboard/overview     数据大盘概览
+  POST   /admin/v1/documents              上传知识文档
+  GET    /admin/v1/documents/{id}/progress 文档索引进度
+  POST   /admin/v1/personas               配置数字人人设
+  POST   /admin/v1/prompts/experiments    创建 Prompt 实验
+  GET    /admin/v1/sessions/{id}/replay   会话回放
+  POST   /admin/v1/turns/{id}/label       标注对话轮次
+  GET    /admin/v1/audit-logs             审计日志
+
+系统
+  GET    /healthz                         健康检查
+  GET    /readyz                          就绪检查
 ```
 
 完整接口文档：[`docs/api/openapi.yaml`](docs/api/openapi.yaml)
@@ -317,23 +395,106 @@ aether-guide/
 │   │   │   ├── models/         # 数据模型
 │   │   │   ├── repository/     # 存储层 (内存 / SQL)
 │   │   │   ├── routers/        # 路由控制器
+│   │   │   │   ├── auth.py     # 认证路由
+│   │   │   │   ├── tourist.py  # 游客端路由
+│   │   │   │   ├── admin.py    # 管理端路由
+│   │   │   │   ├── avatar.py   # 数字人路由
+│   │   │   │   ├── location.py # 多模态定位路由
+│   │   │   │   ├── recommendations.py # 路线推荐路由
+│   │   │   │   ├── safety.py   # 安全保障路由
+│   │   │   │   ├── offline.py  # 离线模式路由
+│   │   │   │   └── audit.py    # 审计日志路由
 │   │   │   ├── schemas/        # 请求/响应 Schema
-│   │   │   ├── services/       # 业务服务 (AI / RAG / 定位 / 语音 / 安全)
+│   │   │   ├── services/       # 业务服务
+│   │   │   │   ├── ai/         # AI 对话服务 (LiteLLM / Anthropic / OpenAI)
+│   │   │   │   ├── rag/        # RAG 知识检索服务
+│   │   │   │   │   ├── embedding.py   # 嵌入模型 (BGE)
+│   │   │   │   │   ├── vectorstore.py # 向量存储 (Qdrant)
+│   │   │   │   │   ├── retriever.py   # 检索器
+│   │   │   │   │   ├── indexer.py     # 索引器
+│   │   │   │   │   └── evaluator.py   # 评估器
+│   │   │   │   ├── location/   # 多模态定位服务
+│   │   │   │   │   ├── vps.py           # 视觉定位 (VPS)
+│   │   │   │   │   ├── qr.py            # QR 码锚点定位
+│   │   │   │   │   ├── conversational.py # 对话式定位
+│   │   │   │   │   └── fusion.py        # 融合定位
+│   │   │   │   ├── digital_human/ # 数字人服务
+│   │   │   │   ├── tts/         # TTS 语音合成服务
+│   │   │   │   ├── voice/       # 语音处理服务
+│   │   │   │   ├── recommend/   # 路线推荐服务
+│   │   │   │   ├── safety/      # 安全保障服务
+│   │   │   │   └── common/      # 公共服务
 │   │   │   └── worker/         # 后台任务
-│   │   └── alembic/            # 数据库迁移
+│   │   ├── alembic/            # 数据库迁移
+│   │   └── tests/              # 后端测试
 │   ├── web-tourist/            # 游客端 (Next.js)
-│   │   ├── app/components/
-│   │   │   └── Live2DMao.tsx   # Live2D 数字人浮窗组件
-│   │   └── public/live2d/      # Cubism Core + mao_pro 模型资产
+│   │   ├── app/
+│   │   │   ├── page.tsx        # 主页 (地图 + 数字人 + 聊天)
+│   │   │   ├── landmarks/      # 景点列表页
+│   │   │   ├── photo/          # 拍照识景页
+│   │   │   ├── route/          # 路线规划页
+│   │   │   ├── components/     # 组件
+│   │   │   │   ├── AmapView.tsx     # 高德地图组件
+│   │   │   │   ├── Live2DMao.tsx    # Live2D 数字人组件
+│   │   │   │   ├── IntroScreen.tsx  # 引导页
+│   │   │   │   ├── TextStream.tsx   # 文本流组件
+│   │   │   │   └── VisitorChrome.tsx # 游客端框架
+│   │   │   └── lib/            # 工具库
+│   │   └── public/live2d/      # Cubism Core + Haru Greeter 模型资产
 │   └── web-admin/              # 管理端 (Next.js)
+│       ├── app/
+│       │   ├── page.tsx        # 数据大盘
+│       │   ├── knowledge/      # 知识库管理
+│       │   ├── experiments/    # 实验管理
+│       │   ├── replay/         # 会话回放
+│       │   ├── settings/       # 设置
+│       │   │   └── atmosphere/ # 氛围设置
+│       │   ├── login/          # 登录页
+│       │   ├── components/     # 组件
+│       │   │   ├── AdminShell.tsx # 管理端框架
+│       │   │   └── Charts.tsx     # 图表组件
+│       │   └── lib/            # 工具库
+│       └── public/             # 静态资源
 ├── packages/
 │   └── design-system/          # 共享设计系统
+│       └── src/
+│           ├── index.ts        # 入口文件
+│           ├── styles.css      # 样式
+│           ├── icons.tsx       # 图标组件
+│           ├── typography.tsx  # 排版组件
+│           └── demo-data.ts    # 演示数据
 ├── infra/
 │   ├── docker-compose.yml      # 基础设施编排
+│   ├── k3s/                    # K3s 部署配置
+│   ├── grafana-dashboards/     # Grafana 仪表盘
 │   └── seed/                   # 演示数据
+│       ├── scenic_demo.json    # 景点种子数据
+│       └── admins.yaml         # 管理员种子数据
 ├── docs/                       # 项目文档
+│   ├── api/                    # API 文档
+│   ├── decisions/              # 架构决策记录
+│   ├── design/                 # 设计文档
+│   ├── runbook/                # 运维手册
+│   ├── MVP_GAP.md              # MVP 差距分析
+│   └── review-round-2.md       # 评审记录
 ├── scripts/                    # 开发脚本
-└── tests/                      # 测试 (E2E / 评估 / 性能)
+│   ├── start.ps1               # Windows 启动脚本
+│   ├── demo.ps1                # Windows 演示脚本
+│   ├── test.ps1                # Windows 测试脚本
+│   ├── eval.ps1                # Windows 评估脚本
+│   ├── perf.ps1                # Windows 性能测试脚本
+│   ├── export_openapi.py       # 导出 OpenAPI 文档
+│   └── web-lint.mjs            # 前端 Lint 脚本
+├── tests/                      # 测试
+│   ├── e2e/                    # 端到端测试
+│   ├── eval/                   # 评估测试
+│   └── perf/                   # 性能测试
+├── package.json                # npm 工作区配置
+├── pyproject.toml              # uv 工作区配置
+├── tsconfig.base.json          # TypeScript 基础配置
+├── Makefile                    # Make 命令
+├── start.cmd                   # Windows 一键启动
+└── start.sh                    # macOS/Linux 一键启动
 ```
 
 ## 高德地图 & 景点坐标
@@ -369,6 +530,12 @@ powershell -ExecutionPolicy Bypass -File scripts\test.ps1
 npm run web:lint          # ESLint
 npm run web:typecheck     # TypeScript 类型检查
 npm run web:build         # 生产构建
+
+# RAG 评估
+make eval
+
+# 性能测试
+make perf
 ```
 
 ## 部署
@@ -379,7 +546,7 @@ npm run web:build         # 生产构建
 docker compose -f infra/docker-compose.yml up -d
 ```
 
-包含：PostgreSQL · Redis · MinIO · LiveKit · Prometheus · Grafana · Loki · Tempo
+包含：PostgreSQL · Redis · Qdrant · MinIO · Prometheus · Grafana · Loki · Tempo
 
 ### K3s (轻量级 Kubernetes)
 
@@ -393,9 +560,11 @@ docker compose -f infra/docker-compose.yml up -d
 - [Next.js](https://nextjs.org/) — React 全栈框架
 - [LiteLLM](https://github.com/BerriAI/litellm) — 统一 LLM 调用层
 - [pgvector](https://github.com/pgvector/pgvector) — PostgreSQL 向量检索扩展
-- [Live2D Cubism](https://www.live2d.com/) — 2D 数字人动画引擎与 "Mao Pro" 示例模型
+- [Qdrant](https://qdrant.tech/) — 高性能向量数据库
+- [Live2D Cubism](https://www.live2d.com/) — 2D 数字人动画引擎与 "Haru Greeter" 示例模型
 - [pixi-live2d-display-lipsyncpatch](https://github.com/RaSan147/pixi-live2d-display) — PIXI 7 + Cubism 4/5 兼容的 Live2D 插件
 - [PixiJS](https://pixijs.com/) — 高性能 2D WebGL 渲染引擎
+- [MiMo TTS](https://xiaomi.com) — 小米 MiMo TTS 语音合成服务
 
 ---
 
@@ -415,7 +584,40 @@ docker compose -f infra/docker-compose.yml up -d
 
 A **Live2D Cubism 5** avatar (Haru Greeter) is rendered as a floating guide on the tourist home page via `pixi.js` + `pixi-live2d-display-lipsyncpatch`. The model tracks the cursor, reacts to taps with random motions/expressions, auto-lipsyncs with TTS audio, and can be swapped out for any Cubism 3/4/5 `.model3.json` asset.
 
-See the [API spec](docs/api/openapi.yaml), the [architecture diagram](#技术架构), and the [数字人 (Live2D)](#数字人-live2d) section above for details.
+### Key Features
+
+**Tourist App:**
+- AI Digital Human (Live2D) — Cubism 5 "Haru Greeter" floating avatar with eye-tracking, tap interactions, and LLM streaming dialog (WebSocket)
+- AMap Integration — AMap JSAPI v2.0 dark-style map with landmark markers and POI search
+- Smart Navigation — Landmark carousel, route planning, AI voice narration (TTS)
+- Multi-modal Positioning — Visual Positioning (VPS), QR code anchoring, conversational positioning, fused positioning
+- Photo Recognition — Upload photos for AI-powered landmark identification and narration
+- Safety Features — One-click emergency help, lost person reporting, emergency point lookup
+- Offline Mode — Download offline data packs for browsing without network
+- Anonymous Access — No registration required
+
+**Admin Dashboard:**
+- Real-time Analytics — Live tourist statistics, session analysis, heatmap, Token cost monitoring
+- Knowledge Management — RAG knowledge base maintenance, document upload and indexing
+- Audit Logs — Full-chain operation tracking, user behavior analysis
+- Atmosphere Settings — Multi-scene theme switching (Forest/Ocean/Desert/Dusk/Lake)
+- Experiment Management — A/B testing, Prompt experiments, feature flagging
+- Session Replay — Tourist session history playback and annotation
+- Persona Management — Digital human persona configuration, voice and avatar binding
+
+### Tech Stack
+
+| Layer | Technologies |
+|-------|-------------|
+| **Frontend** | Next.js 15 · React 19 · Tailwind CSS 4 · TanStack Query |
+| **Digital Human** | Live2D Cubism 5 Core · pixi.js 7 · pixi-live2d-display-lipsyncpatch |
+| **Backend** | FastAPI · Pydantic v2 · SQLAlchemy (async) · Alembic |
+| **AI** | LiteLLM · Anthropic · OpenAI (pluggable) · RAG · Vector Search (Qdrant) |
+| **TTS** | MiMo TTS (Xiaomi) · Custom voice roles |
+| **Positioning** | VPS · QR Code Anchoring · Conversational · Fused |
+| **Infrastructure** | PostgreSQL (pgvector) · Redis · Qdrant · MinIO |
+| **Observability** | Prometheus · Grafana · Loki · Tempo |
+| **Package Management** | uv (Python) · npm workspaces (Node) |
 
 ### Quick Start
 

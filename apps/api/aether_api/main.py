@@ -58,7 +58,8 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    settings = get_settings()
+    settings_override = getattr(app.state, "settings_override", None)
+    settings = settings_override if isinstance(settings_override, Settings) else get_settings()
     repository = await create_repository(settings)
     await seed_admins(settings, repository)
 
@@ -189,6 +190,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_version="3.1.0",
         lifespan=lifespan,
     )
+    app.state.settings_override = resolved_settings
     app.add_middleware(TraceMiddleware, settings=resolved_settings)
     app.add_middleware(RedisSlidingWindowRateLimit, settings=resolved_settings)
     app.add_middleware(AuditMiddleware)

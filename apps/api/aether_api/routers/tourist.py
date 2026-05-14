@@ -1,6 +1,8 @@
 # SCORE-IMPACT: First runnable tourist loop and multimodal API surface.
 from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
+from pydantic import ValidationError
+from starlette.requests import ClientDisconnect
 
 from aether_api.auth.dependencies import authenticate_websocket, require_role
 from aether_api.dependencies import AIClientDep, EmbeddingDep, RepositoryDep, VectorStoreDep
@@ -121,10 +123,18 @@ async def submit_feedback(
 async def text_to_speech(
     request: Request,
 ) -> Response:
-    body = await request.json()
-    text = body.get("text", "")
-    if not text:
+    try:
+        body = await request.json()
+    except (ValueError, ClientDisconnect) as exc:
+        raise AppError(
+            ErrorCode.bad_request,
+            "Request body must be valid JSON.",
+            status_code=400,
+        ) from exc
+    text = body.get("text") if isinstance(body, dict) else None
+    if not isinstance(text, str) or not text.strip():
         raise AppError(ErrorCode.bad_request, "text is required", status_code=400)
+    text = text.strip()
 
     settings = request.app.state.settings
     from aether_api.services.tts.client import TTSClient
@@ -170,7 +180,19 @@ async def stream_session(
         while True:
             set_trace_id(new_trace_id())
             raw_message = await websocket.receive_json()
-            message = StreamMessage.model_validate(raw_message)
+            try:
+                message = StreamMessage.model_validate(raw_message)
+            except ValidationError:
+                await websocket.send_json(
+                    {
+                        "type": "stream_error",
+                        "trace_id": current_trace_id(),
+                        "data": {"content": "Invalid stream message payload."},
+                        "code": ErrorCode.validation_error,
+                        "message": "Request payload failed validation.",
+                    }
+                )
+                continue
             await websocket.send_json(
                 {
                     "type": "stream_ack",
@@ -206,9 +228,9 @@ async def stream_session(
                     for chunk in retrieved
                 ],
             )
-            full_content = ""
+            content_parts: list[str] = []
             async for token in ai_client.generate_reply_stream(ai_request):
-                full_content += token
+                content_parts.append(token)
                 await websocket.send_json(
                     {
                         "type": "stream_chunk",
@@ -221,6 +243,7 @@ async def stream_session(
                         "message": "ok",
                     }
                 )
+            full_content = "".join(content_parts)
             assistant = AssistantMessage(
                 session_id=session.id,
                 content=full_content,

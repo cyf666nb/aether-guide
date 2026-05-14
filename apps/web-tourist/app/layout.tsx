@@ -4,6 +4,8 @@ import "./globals.css";
 import "./linjing.css";
 import { AtmosphereInit, Providers } from "@aether/design-system";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { NavProvider } from "./components/NavContext";
+import { AppShell } from "./components/AppShell";
 
 export const metadata: Metadata = {
   title: "临境 · 知行导览",
@@ -32,7 +34,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <AtmosphereInit />
         <Providers>
-          <ErrorBoundary>{children}</ErrorBoundary>
+          <ErrorBoundary>
+            <NavProvider>
+              <AppShell>{children}</AppShell>
+            </NavProvider>
+          </ErrorBoundary>
         </Providers>
       </body>
     </html>

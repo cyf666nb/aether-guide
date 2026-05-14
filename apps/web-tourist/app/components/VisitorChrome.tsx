@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AetherLogo } from "@aether/design-system/icons";
+import { ThemeToggle } from "@aether/design-system";
 
 type TrustMode = "online" | "visual" | "offline";
 type ConnectionState = "connecting" | "online" | "offline" | "reconnecting";
@@ -51,6 +52,7 @@ export function VisitorNav() {
           拍照
         </Link>
       </div>
+      <ThemeToggle />
     </nav>
   );
 }

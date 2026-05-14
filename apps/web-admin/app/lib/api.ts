@@ -1,9 +1,34 @@
 ﻿import { dashboardMetrics, fallbackLandmarks } from "@aether/design-system/demo-data";
 
+let warnedApiFallback = false;
+
 function getApiBase(): string {
-  if (process.env.NEXT_PUBLIC_API_BASE) return process.env.NEXT_PUBLIC_API_BASE;
+  const configured = process.env.NEXT_PUBLIC_API_BASE;
+  if (configured) return configured.replace(/\/$/, "");
+
   if (typeof window === "object") {
-    return `${window.location.protocol}//${window.location.hostname}:8000`;
+    const { hostname, origin, protocol } = window.location;
+    const isLocal =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1";
+    const fallback = isLocal
+      ? `${protocol}//${hostname === "::1" ? "[::1]" : hostname}:8000`
+      : origin;
+    if (!warnedApiFallback) {
+      console.warn(
+        `[api] NEXT_PUBLIC_API_BASE is not configured; falling back to ${fallback}`,
+      );
+      warnedApiFallback = true;
+    }
+    return fallback;
+  }
+
+  if (!warnedApiFallback) {
+    console.warn(
+      "[api] NEXT_PUBLIC_API_BASE is not configured; falling back to http://127.0.0.1:8000",
+    );
+    warnedApiFallback = true;
   }
   return "http://127.0.0.1:8000";
 }
@@ -95,16 +120,19 @@ async function ensureTouristToken(forceRefresh = false): Promise<string> {
   }
   if (touristBootstrap) return touristBootstrap;
   touristBootstrap = (async () => {
-    const response = await fetch(`${getApiBase()}/api/v1/auth/anonymous`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}"
-    });
-    const payload = (await response.json()) as ApiEnvelope<{ token: string }>;
-    const token = payload.data?.token ?? "";
-    if (token) write(TOURIST_KEY, token);
-    touristBootstrap = null;
-    return token;
+    try {
+      const response = await fetch(`${getApiBase()}/api/v1/auth/anonymous`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      const payload = (await response.json()) as ApiEnvelope<{ token: string }>;
+      const token = payload.data?.token ?? "";
+      if (token) write(TOURIST_KEY, token);
+      return token;
+    } finally {
+      touristBootstrap = null;
+    }
   })();
   return touristBootstrap;
 }

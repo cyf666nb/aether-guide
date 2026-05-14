@@ -279,6 +279,39 @@ def test_cors_rejects_unknown_origin_when_restricted() -> None:
         assert response.headers.get("access-control-allow-origin") != "https://evil.example"
 
 
+def test_create_app_lifespan_uses_explicit_settings() -> None:
+    """create_app(settings) should carry that exact config into lifespan startup."""
+    from aether_api.config import Settings
+    from aether_api.main import create_app
+    from fastapi.testclient import TestClient
+
+    cfg = Settings(
+        storage_mode="inmemory",
+        redis_url="",
+        rate_limit_per_minute=321,
+    )
+    local_app = create_app(cfg)
+    with TestClient(local_app) as client:
+        assert client.get("/healthz").status_code == 200
+        assert local_app.state.settings.rate_limit_per_minute == 321
+
+
+def test_tts_rejects_malformed_or_non_string_payload() -> None:
+    with _auth_client() as client:
+        tourist = client.post("/api/v1/auth/anonymous").json()["data"]["token"]
+        headers = {
+            "Authorization": f"Bearer {tourist}",
+            "Content-Type": "application/json",
+        }
+        malformed = client.post("/api/v1/tts", headers=headers, content="{")
+        assert malformed.status_code == 400
+        assert malformed.json()["code"] == "BAD_REQUEST"
+
+        wrong_type = client.post("/api/v1/tts", headers=headers, json={"text": 123})
+        assert wrong_type.status_code == 400
+        assert wrong_type.json()["code"] == "BAD_REQUEST"
+
+
 # ---------- Task 8: Redis sliding-window rate limit -----------------------
 
 

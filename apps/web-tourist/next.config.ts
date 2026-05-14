@@ -4,9 +4,7 @@ import path from "node:path";
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(process.cwd(), "../.."),
   transpilePackages: ["@aether/design-system"],
-  experimental: {
-    viewTransition: true
-  }
+  experimental: {}
 };
 
 export default nextConfig;
